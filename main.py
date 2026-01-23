@@ -20,12 +20,15 @@ from config import (
     MAX_BREADCRUMBS,
     POLAR_PATH,
     SHOW_FPS,
-    COLOR_WHITE
+    COLOR_WHITE,
+    HISTORY_SNAPSHOT_INTERVAL,
+    MAX_HISTORY_SNAPSHOTS
 )
 
 # Import core components
 from core.boat import Boat
 from core.polar import PolarTable
+from core.history import SimulationHistory
 
 # Import data providers
 from data.geography import GeographyProvider
@@ -110,6 +113,14 @@ def main():
     # Simulation state
     accumulator = 0.0
     breadcrumb_timer = 0.0
+    snapshot_timer = 0.0  # Timer for history snapshots
+
+    # Initialize history for time rewind
+    history = SimulationHistory(max_snapshots=MAX_HISTORY_SNAPSHOTS)
+    controls.history = history  # Give controls access to history
+
+    # Capture initial snapshot
+    history.capture(sim_time, accumulator, breadcrumb_timer, boats, controls.waypoints)
 
     # Environmental data (updated each physics step)
     wind_data = (315, 10)  # Default NW 10 kts
@@ -142,6 +153,16 @@ def main():
 
         # Update button hover states
         instruments.update_button_hover(pygame.mouse.get_pos())
+
+        # Check for pending time restore from rewind operations
+        if controls.pending_time_restore:
+            restore_data = controls.pending_time_restore
+            controls.pending_time_restore = None
+            sim_time = restore_data['sim_time']
+            accumulator = restore_data['accumulator']
+            breadcrumb_timer = restore_data['breadcrumb_timer']
+            controls.waypoints = restore_data['waypoints']
+            snapshot_timer = 0.0  # Reset snapshot timer
 
         # ===== PHYSICS UPDATES (Fixed Time Step) =====
         if not controls.paused:
@@ -228,6 +249,12 @@ def main():
                 # Advance simulation time
                 sim_time += timedelta(seconds=TIME_STEP)
                 accumulator -= TIME_STEP
+
+                # Capture history snapshot every HISTORY_SNAPSHOT_INTERVAL seconds
+                snapshot_timer += TIME_STEP
+                if snapshot_timer >= HISTORY_SNAPSHOT_INTERVAL:
+                    history.capture(sim_time, accumulator, breadcrumb_timer, boats, controls.waypoints)
+                    snapshot_timer = 0.0
 
                 # Update forecast windows
                 weather.update(sim_time)

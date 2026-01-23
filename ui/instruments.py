@@ -83,6 +83,10 @@ class InstrumentPanel:
         # Buttons (will be positioned dynamically)
         self.buttons = {}
 
+        # Timeline rect for click handling (set during render)
+        self.timeline_rect = None
+        self.timeline_width = 0
+
     def render(self, surface, boat, sim_time, sim_speed, load_progress, waypoints=None, is_paused=False, controls=None):
         """
         Render all instrument panels.
@@ -115,9 +119,17 @@ class InstrumentPanel:
 
         surface.blit(boat_title, (self.x + INSTRUMENT_PANEL_PADDING, y_pos))
 
-        # Pause/Preview indicator and controls
+        # Pause/Preview/Rewind indicator and controls
         if is_paused:
-            if controls and controls.forecast_preview_mode:
+            if controls and controls.rewind_mode:
+                # Rewind mode indicator
+                offset = controls.history.get_time_offset_seconds() if controls.history else 0
+                if offset == 0:
+                    rewind_text = self.font_title.render("AT PRESENT", True, COLOR_GREEN)
+                else:
+                    rewind_text = self.font_title.render(f"REWIND {offset:.0f}s", True, (255, 200, 100))
+                surface.blit(rewind_text, (self.x + self.width - rewind_text.get_width() - 10, y_pos))
+            elif controls and controls.forecast_preview_mode:
                 # Forecast preview mode indicator
                 offset = controls.preview_time_offset_minutes
                 preview_text = self.font_title.render(f"FCST {offset:+d}min", True, (100, 200, 255))
@@ -485,8 +497,9 @@ class InstrumentPanel:
         self.buttons['reset'] = Button(x + (button_width + button_spacing) * 2, row_y,
                                        button_width, button_height, "RESET", COLOR_LABEL)
 
-        # Row 5: Forecast preview (only when paused)
-        if is_paused:
+        # Row 5: Forecast preview (only when paused and not in rewind mode)
+        rewind_on = controls and controls.rewind_mode
+        if is_paused and not rewind_on:
             row_y += button_height + button_spacing + 10  # Extra space
 
             # Forecast label
@@ -511,9 +524,118 @@ class InstrumentPanel:
                     offset_label = self.font_small.render(offset_text, True, (100, 200, 255))
                     surface.blit(offset_label, (x + button_width + button_spacing + 2*btn_small + 2*button_spacing + 10, row_y + 8))
 
+        # Row 6: Time Rewind (only when paused)
+        if is_paused:
+            row_y += button_height + button_spacing + 10  # Extra space
+
+            # Rewind label
+            label = self.font_small.render("REWIND:", True, COLOR_LABEL)
+            surface.blit(label, (x, row_y - 15))
+
+            self.buttons['rewind'] = Button(x, row_y, button_width, button_height, "REWIND",
+                                           (255, 200, 100) if rewind_on else COLOR_LABEL)
+
+            # Navigation buttons (only if rewind active)
+            if rewind_on and controls and controls.history:
+                btn_small = 40
+                self.buttons['rewind_oldest'] = Button(x + button_width + button_spacing, row_y,
+                                                       btn_small, button_height, "<<", COLOR_LABEL)
+                self.buttons['rewind_back'] = Button(x + button_width + button_spacing + btn_small + button_spacing,
+                                                     row_y, btn_small, button_height, "<", COLOR_LABEL)
+                self.buttons['rewind_fwd'] = Button(x + button_width + button_spacing + 2*btn_small + 2*button_spacing,
+                                                    row_y, btn_small, button_height, ">", COLOR_LABEL)
+                self.buttons['rewind_present'] = Button(x + button_width + button_spacing + 3*btn_small + 3*button_spacing,
+                                                        row_y, btn_small, button_height, ">>", COLOR_LABEL)
+
+                # Timeline slider row
+                row_y += button_height + button_spacing
+
+                # Draw timeline
+                self._render_timeline(surface, x, row_y, controls)
+
         # Draw all buttons
         for button in self.buttons.values():
             button.draw(surface)
+
+    def _render_timeline(self, surface, x, y, controls):
+        """Render timeline slider for rewind scrubbing."""
+        if not controls or not controls.history:
+            return
+
+        history = controls.history
+        time_range = history.get_time_range()
+        if not time_range:
+            return
+
+        oldest_time, newest_time = time_range
+        total_seconds = (newest_time - oldest_time).total_seconds()
+        if total_seconds <= 0:
+            return
+
+        # Timeline dimensions
+        timeline_width = self.width - 2 * INSTRUMENT_PANEL_PADDING - 20
+        timeline_height = 20
+
+        # Draw timeline background
+        timeline_rect = pygame.Rect(x, y, timeline_width, timeline_height)
+        pygame.draw.rect(surface, (30, 30, 30), timeline_rect)
+        pygame.draw.rect(surface, COLOR_BORDER, timeline_rect, 1)
+
+        # Calculate current position
+        current_idx = history.get_current_index()
+        total_snapshots = history.get_snapshot_count()
+        if total_snapshots > 1:
+            position_ratio = current_idx / (total_snapshots - 1)
+        else:
+            position_ratio = 1.0
+
+        # Draw filled portion
+        filled_width = int(timeline_width * position_ratio)
+        if filled_width > 0:
+            filled_rect = pygame.Rect(x, y, filled_width, timeline_height)
+            pygame.draw.rect(surface, (100, 150, 200), filled_rect)
+
+        # Draw position indicator
+        indicator_x = x + filled_width
+        pygame.draw.line(surface, COLOR_WHITE, (indicator_x, y), (indicator_x, y + timeline_height), 2)
+
+        # Store timeline rect for click handling
+        self.timeline_rect = timeline_rect
+        self.timeline_width = timeline_width
+
+        # Time range labels
+        y += timeline_height + 5
+        oldest_str = oldest_time.strftime("%H:%M:%S")
+        newest_str = newest_time.strftime("%H:%M:%S")
+
+        oldest_label = self.font_small.render(oldest_str, True, COLOR_LABEL)
+        newest_label = self.font_small.render(newest_str, True, COLOR_LABEL)
+
+        surface.blit(oldest_label, (x, y))
+        surface.blit(newest_label, (x + timeline_width - newest_label.get_width(), y))
+
+        # Current time in center
+        current_time = history.get_current_time()
+        if current_time:
+            current_str = current_time.strftime("%H:%M:%S")
+        else:
+            current_str = newest_time.strftime("%H:%M:%S")
+
+        current_label = self.font_value.render(current_str, True, (255, 200, 100))
+        surface.blit(current_label, (x + timeline_width // 2 - current_label.get_width() // 2, y))
+
+        # Status indicator
+        y += 20
+        if history.is_at_present():
+            status_text = "AT PRESENT"
+            status_color = COLOR_GREEN
+        else:
+            offset = history.get_time_offset_seconds()
+            status_text = f"VIEWING PAST ({offset:.0f}s)"
+            status_color = (255, 200, 100)
+
+        status_label = self.font_small.render(status_text, True, status_color)
+        surface.blit(status_label, (x + timeline_width // 2 - status_label.get_width() // 2, y))
 
     def handle_button_click(self, mouse_pos, controls):
         """
@@ -618,6 +740,100 @@ class InstrumentPanel:
                         print(f"Failed to enable AI: {e}")
             return True
 
+        # Rewind mode buttons
+        if 'rewind' in self.buttons and self.buttons['rewind'].check_click(mouse_pos):
+            if controls.paused:
+                controls.rewind_mode = not controls.rewind_mode
+                if controls.rewind_mode:
+                    # Exit forecast preview mode (mutually exclusive)
+                    controls.forecast_preview_mode = False
+                    controls.preview_time_offset_minutes = 0
+                    print("Rewind mode ON")
+                else:
+                    print("Rewind mode OFF")
+            return True
+
+        if 'rewind_oldest' in self.buttons and self.buttons['rewind_oldest'].check_click(mouse_pos):
+            if controls.rewind_mode and controls.history:
+                result = controls.history.jump_to_oldest(controls.boats)
+                if result:
+                    sim_time, accumulator, breadcrumb_timer, waypoints = result
+                    controls.pending_time_restore = {
+                        'sim_time': sim_time,
+                        'accumulator': accumulator,
+                        'breadcrumb_timer': breadcrumb_timer,
+                        'waypoints': waypoints
+                    }
+                    print(f"Jumped to oldest: {sim_time.strftime('%H:%M:%S')}")
+            return True
+
+        if 'rewind_back' in self.buttons and self.buttons['rewind_back'].check_click(mouse_pos):
+            if controls.rewind_mode and controls.history:
+                result = controls.history.step_backward(controls.boats)
+                if result:
+                    sim_time, accumulator, breadcrumb_timer, waypoints = result
+                    controls.pending_time_restore = {
+                        'sim_time': sim_time,
+                        'accumulator': accumulator,
+                        'breadcrumb_timer': breadcrumb_timer,
+                        'waypoints': waypoints
+                    }
+                    offset = controls.history.get_time_offset_seconds()
+                    print(f"Rewound to {sim_time.strftime('%H:%M:%S')} ({offset:.0f}s)")
+            return True
+
+        if 'rewind_fwd' in self.buttons and self.buttons['rewind_fwd'].check_click(mouse_pos):
+            if controls.rewind_mode and controls.history:
+                result = controls.history.step_forward(controls.boats)
+                if result:
+                    sim_time, accumulator, breadcrumb_timer, waypoints = result
+                    controls.pending_time_restore = {
+                        'sim_time': sim_time,
+                        'accumulator': accumulator,
+                        'breadcrumb_timer': breadcrumb_timer,
+                        'waypoints': waypoints
+                    }
+                    offset = controls.history.get_time_offset_seconds()
+                    print(f"Stepped to {sim_time.strftime('%H:%M:%S')} ({offset:.0f}s)")
+            return True
+
+        if 'rewind_present' in self.buttons and self.buttons['rewind_present'].check_click(mouse_pos):
+            if controls.rewind_mode and controls.history:
+                result = controls.history.jump_to_present(controls.boats)
+                if result:
+                    sim_time, accumulator, breadcrumb_timer, waypoints = result
+                    controls.pending_time_restore = {
+                        'sim_time': sim_time,
+                        'accumulator': accumulator,
+                        'breadcrumb_timer': breadcrumb_timer,
+                        'waypoints': waypoints
+                    }
+                    print(f"Jumped to present: {sim_time.strftime('%H:%M:%S')}")
+            return True
+
+        # Timeline slider click
+        if self.timeline_rect is not None and self.timeline_rect.collidepoint(mouse_pos):
+            if controls.rewind_mode and controls.history:
+                # Calculate which snapshot to jump to based on click position
+                relative_x = mouse_pos[0] - self.timeline_rect.x
+                ratio = relative_x / self.timeline_width
+                total_snapshots = controls.history.get_snapshot_count()
+                target_index = int(ratio * (total_snapshots - 1))
+                target_index = max(0, min(total_snapshots - 1, target_index))
+
+                result = controls.history.jump_to_index(target_index, controls.boats)
+                if result:
+                    sim_time, accumulator, breadcrumb_timer, waypoints = result
+                    controls.pending_time_restore = {
+                        'sim_time': sim_time,
+                        'accumulator': accumulator,
+                        'breadcrumb_timer': breadcrumb_timer,
+                        'waypoints': waypoints
+                    }
+                    offset = controls.history.get_time_offset_seconds()
+                    print(f"Scrubbed to {sim_time.strftime('%H:%M:%S')} ({offset:.0f}s)")
+            return True
+
         return False
 
     def update_button_hover(self, mouse_pos):
@@ -647,7 +863,7 @@ class ControlsHelpOverlay:
         screen_width = surface.get_width()
         screen_height = surface.get_height()
 
-        overlay = pygame.Surface((700, 600))
+        overlay = pygame.Surface((700, 700))
         overlay.set_alpha(230)
         overlay.fill((40, 40, 40))
 
@@ -692,6 +908,14 @@ class ControlsHelpOverlay:
             ("  F key", "Toggle preview mode"),
             ("  , / . keys", "Scrub time -/+ 10 min"),
             ("", ""),
+            ("TIME REWIND (while paused)", ""),
+            ("  ` (backtick)", "Toggle rewind mode"),
+            ("  [ / ] keys", "Step backward/forward 30s"),
+            ("  Home", "Jump to oldest history"),
+            ("  End", "Jump to present"),
+            ("  Click timeline", "Scrub to any point"),
+            ("  SPACE", "Resume (discards future)"),
+            ("", ""),
             ("BOAT PERFORMANCE", ""),
             ("  Shift+UP", "Target speed +5%"),
             ("  Shift+DOWN", "Target speed -5%"),
@@ -734,5 +958,5 @@ class ControlsHelpOverlay:
 
         # Blit to center of screen
         x_pos = (screen_width - 700) // 2
-        y_pos = (screen_height - 600) // 2
+        y_pos = (screen_height - 700) // 2
         surface.blit(overlay, (x_pos, y_pos))

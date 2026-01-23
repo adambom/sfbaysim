@@ -43,6 +43,11 @@ class ControlHandler:
         self.forecast_preview_mode = False
         self.preview_time_offset_minutes = 0  # Minutes ahead of current sim time
 
+        # Time rewind mode
+        self.rewind_mode = False
+        self.history = None  # Will be set by main.py
+        self.pending_time_restore = None  # Pending restore data for main.py
+
         # Shared waypoints for all boats
         self.waypoints = []
 
@@ -96,9 +101,23 @@ class ControlHandler:
 
             # ===== SIMULATION CONTROL =====
             elif event.key == pygame.K_SPACE:
-                self.paused = not self.paused
-                status = "PAUSED" if self.paused else "RESUMED"
-                print(f"Simulation {status}")
+                if self.rewind_mode and not self.paused:
+                    # Resuming from rewind mode - truncate future history
+                    if self.history:
+                        self.history.truncate_future()
+                    self.rewind_mode = False
+                    print("Resumed from rewind - future history truncated")
+                elif self.rewind_mode and self.paused:
+                    # Resume simulation from rewound state
+                    if self.history:
+                        self.history.truncate_future()
+                    self.rewind_mode = False
+                    self.paused = False
+                    print("Resumed from rewind - future history truncated")
+                else:
+                    self.paused = not self.paused
+                    status = "PAUSED" if self.paused else "RESUMED"
+                    print(f"Simulation {status}")
 
             elif event.key == pygame.K_EQUALS or event.key == pygame.K_PLUS:
                 # Speed up
@@ -119,12 +138,44 @@ class ControlHandler:
                     print(f"Centered on {self.active_boat.name}")
 
             elif event.key == pygame.K_LEFTBRACKET:
-                self.map_view.zoom_out()
-                print(f"Zoom: {self.map_view.zoom:.2f}x")
+                # [ key - step backward in rewind mode, or zoom out otherwise
+                if self.rewind_mode and self.paused and self.history:
+                    result = self.history.step_backward(self.boats)
+                    if result:
+                        sim_time, accumulator, breadcrumb_timer, waypoints = result
+                        self.pending_time_restore = {
+                            'sim_time': sim_time,
+                            'accumulator': accumulator,
+                            'breadcrumb_timer': breadcrumb_timer,
+                            'waypoints': waypoints
+                        }
+                        offset = self.history.get_time_offset_seconds()
+                        print(f"Rewound to {sim_time.strftime('%H:%M:%S')} ({offset:.0f}s)")
+                    else:
+                        print("At oldest snapshot")
+                else:
+                    self.map_view.zoom_out()
+                    print(f"Zoom: {self.map_view.zoom:.2f}x")
 
             elif event.key == pygame.K_RIGHTBRACKET:
-                self.map_view.zoom_in()
-                print(f"Zoom: {self.map_view.zoom:.2f}x")
+                # ] key - step forward in rewind mode, or zoom in otherwise
+                if self.rewind_mode and self.paused and self.history:
+                    result = self.history.step_forward(self.boats)
+                    if result:
+                        sim_time, accumulator, breadcrumb_timer, waypoints = result
+                        self.pending_time_restore = {
+                            'sim_time': sim_time,
+                            'accumulator': accumulator,
+                            'breadcrumb_timer': breadcrumb_timer,
+                            'waypoints': waypoints
+                        }
+                        offset = self.history.get_time_offset_seconds()
+                        print(f"Stepped to {sim_time.strftime('%H:%M:%S')} ({offset:.0f}s)")
+                    else:
+                        print("At present")
+                else:
+                    self.map_view.zoom_in()
+                    print(f"Zoom: {self.map_view.zoom:.2f}x")
 
             # ===== OVERLAY TOGGLES =====
             elif event.key == pygame.K_w:
@@ -150,12 +201,58 @@ class ControlHandler:
                 status = "ON" if self.show_mark_lines else "OFF"
                 print(f"Mark target lines {status}")
 
+            # ===== TIME REWIND MODE =====
+            elif event.key == pygame.K_BACKQUOTE:
+                # ` (backtick) - toggle rewind mode (only when paused)
+                if self.paused:
+                    self.rewind_mode = not self.rewind_mode
+                    if self.rewind_mode:
+                        # Exit forecast preview mode (mutually exclusive)
+                        self.forecast_preview_mode = False
+                        self.preview_time_offset_minutes = 0
+                        print("Rewind mode ON - Use [ ] to step, Home/End to jump")
+                    else:
+                        print("Rewind mode OFF")
+                else:
+                    print("Rewind mode only available when paused (press SPACE first)")
+
+            elif event.key == pygame.K_HOME:
+                # Home - jump to oldest history (only in rewind mode)
+                if self.rewind_mode and self.paused and self.history:
+                    result = self.history.jump_to_oldest(self.boats)
+                    if result:
+                        sim_time, accumulator, breadcrumb_timer, waypoints = result
+                        self.pending_time_restore = {
+                            'sim_time': sim_time,
+                            'accumulator': accumulator,
+                            'breadcrumb_timer': breadcrumb_timer,
+                            'waypoints': waypoints
+                        }
+                        offset = self.history.get_time_offset_seconds()
+                        print(f"Jumped to oldest: {sim_time.strftime('%H:%M:%S')} ({offset:.0f}s)")
+
+            elif event.key == pygame.K_END:
+                # End - jump to present (only in rewind mode)
+                if self.rewind_mode and self.paused and self.history:
+                    result = self.history.jump_to_present(self.boats)
+                    if result:
+                        sim_time, accumulator, breadcrumb_timer, waypoints = result
+                        self.pending_time_restore = {
+                            'sim_time': sim_time,
+                            'accumulator': accumulator,
+                            'breadcrumb_timer': breadcrumb_timer,
+                            'waypoints': waypoints
+                        }
+                        print(f"Jumped to present: {sim_time.strftime('%H:%M:%S')}")
+
             # ===== FORECAST PREVIEW MODE =====
             elif event.key == pygame.K_f:
                 # Toggle forecast preview mode (only when paused)
                 if self.paused:
                     self.forecast_preview_mode = not self.forecast_preview_mode
                     if self.forecast_preview_mode:
+                        # Exit rewind mode (mutually exclusive)
+                        self.rewind_mode = False
                         self.preview_time_offset_minutes = 0
                         print("Forecast preview mode ON - Use , / . to scrub time")
                     else:

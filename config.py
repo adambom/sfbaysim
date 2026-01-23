@@ -192,6 +192,10 @@ MIN_WIND_SPEED_KTS = 1.0  # Don't render winds weaker than this
 BREADCRUMB_INTERVAL = 5.0  # seconds between breadcrumb points
 MAX_BREADCRUMBS = 500  # Maximum trail length
 
+# ==================== History/Rewind Settings ====================
+HISTORY_SNAPSHOT_INTERVAL = 30  # Seconds between snapshots
+MAX_HISTORY_SNAPSHOTS = 360     # 3 hours of history (360 * 30s = 10800s)
+
 # ==================== UI Font Settings ====================
 FONT_TITLE_SIZE = 16
 FONT_LABEL_SIZE = 14
