@@ -346,73 +346,73 @@ class StartupDialog:
         title_rect = title.get_rect(center=(self.screen_width // 2, 50))
         self.screen.blit(title, title_rect)
 
-        y = 140
+        y = 120
 
         # Location selection
         self._render_section("LOCATION", y)
-        y += 40
+        y += 30
 
         for i, location in enumerate(self.locations):
             color = COLOR_GREEN if i == self.selected_location else COLOR_LABEL
             text = self.font_option.render(f"  {location}", True, color)
             self.screen.blit(text, (200, y))
-            y += 30
+            y += 26
 
-        y += 20
+        y += 10
 
         # Heading selection
         self._render_section(f"HEADING: {self.selected_heading}°", y)
-        y += 40
+        y += 30
         hint = self.font_description.render("Use LEFT/RIGHT arrows to adjust", True, COLOR_LABEL)
         self.screen.blit(hint, (200, y))
-        y += 60
+        y += 40
 
         # Time mode selection
         self._render_section(f"FORECAST TIME: +{self.forecast_hours}h", y)
-        y += 40
+        y += 30
         if self.forecast_hours == 0:
             time_desc = "Current time (now)"
         else:
             time_desc = f"{self.forecast_hours} hours in the future"
         text = self.font_option.render(f"  {time_desc}", True, COLOR_GREEN)
         self.screen.blit(text, (200, y))
-        y += 30
+        y += 25
         hint = self.font_description.render("T: cycle (0,6,12,18,24,36,48) | ,/. : ±1 hour", True, COLOR_LABEL)
         self.screen.blit(hint, (200, y))
-        y += 60
+        y += 40
 
         # Scenario selection
         self._render_section("SCENARIO", y)
-        y += 40
+        y += 30
         scenario_name = self.scenarios[self.selected_scenario]
         scenario_desc = SCENARIOS[scenario_name]['description']
         text = self.font_option.render(f"  {scenario_name}", True, COLOR_GREEN)
         self.screen.blit(text, (200, y))
-        y += 30
+        y += 25
         desc = self.font_description.render(f"  {scenario_desc}", True, COLOR_LABEL)
         self.screen.blit(desc, (200, y))
-        y += 30
+        y += 22
         hint = self.font_description.render("Press S to cycle scenarios", True, COLOR_LABEL)
         self.screen.blit(hint, (200, y))
-        y += 50
+        y += 35
 
         # Polar selection
         self._render_section("BOAT / POLAR", y)
-        y += 40
+        y += 30
         polar_name = self.polar_names[self.selected_polar]
         text = self.font_option.render(f"  {polar_name}", True, COLOR_GREEN)
         self.screen.blit(text, (200, y))
-        y += 30
+        y += 25
         hint = self.font_description.render("Press P to cycle polar tables", True, COLOR_LABEL)
         self.screen.blit(hint, (200, y))
-        y += 50
+        y += 35
 
         # Target speed factor
         self._render_section(f"TARGET SPEED: {self.target_speed_factor*100:.0f}%", y)
-        y += 40
+        y += 30
         desc = self.font_description.render("  Accounts for sea state, crew skill, etc.", True, COLOR_LABEL)
         self.screen.blit(desc, (200, y))
-        y += 25
+        y += 22
         hint = self.font_description.render("Press +/- to adjust", True, COLOR_LABEL)
         self.screen.blit(hint, (200, y))
 

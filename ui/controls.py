@@ -38,6 +38,7 @@ class ControlHandler:
         self.show_help = False
         self.show_course_lines = False  # Heading and COG projection lines
         self.show_mark_lines = False  # Dashed lines to target marks
+        self.show_ladder_rungs = False  # Ladder rungs overlay
 
         # Forecast preview mode (for looking ahead in time while paused)
         self.forecast_preview_mode = False
@@ -53,6 +54,7 @@ class ControlHandler:
 
         # Mouse drag state
         self.dragging = False
+        self.dragging_boat = False  # True when dragging active boat
         self.last_mouse_pos = None
 
     @property
@@ -200,6 +202,11 @@ class ControlHandler:
                 self.show_mark_lines = not self.show_mark_lines
                 status = "ON" if self.show_mark_lines else "OFF"
                 print(f"Mark target lines {status}")
+
+            elif event.key == pygame.K_y:
+                self.show_ladder_rungs = not self.show_ladder_rungs
+                status = "ON" if self.show_ladder_rungs else "OFF"
+                print(f"Ladder rungs {status}")
 
             # ===== TIME REWIND MODE =====
             elif event.key == pygame.K_BACKQUOTE:
@@ -373,11 +380,17 @@ class ControlHandler:
                     })
                     print(f"Waypoint added: {name} at ({lat:.4f}, {lon:.4f})")
                 else:
-                    # Check if clicking on a boat to switch active
+                    # Check if clicking on a boat
                     clicked_boat_idx = self._check_boat_click(event.pos)
                     if clicked_boat_idx is not None:
-                        self.active_boat_index = clicked_boat_idx
-                        print(f"Switched to {self.active_boat.name}")
+                        if clicked_boat_idx == self.active_boat_index:
+                            # Clicked on already-active boat: start dragging it
+                            self.dragging_boat = True
+                            self.last_mouse_pos = event.pos
+                        else:
+                            # Clicked on different boat: switch to it
+                            self.active_boat_index = clicked_boat_idx
+                            print(f"Switched to {self.active_boat.name}")
                     else:
                         # Start drag for panning
                         self.dragging = True
@@ -402,10 +415,17 @@ class ControlHandler:
         elif event.type == pygame.MOUSEBUTTONUP:
             if event.button == 1:  # Left button released
                 self.dragging = False
+                self.dragging_boat = False
                 self.last_mouse_pos = None
 
         elif event.type == pygame.MOUSEMOTION:
-            if self.dragging and self.last_mouse_pos:
+            if self.dragging_boat and self.last_mouse_pos and self.active_boat:
+                # Move boat to new position
+                lat, lon = self.map_view.screen_to_latlon(event.pos[0], event.pos[1])
+                self.active_boat.lat = lat
+                self.active_boat.lon = lon
+                self.last_mouse_pos = event.pos
+            elif self.dragging and self.last_mouse_pos:
                 # Pan map
                 dx = event.pos[0] - self.last_mouse_pos[0]
                 dy = event.pos[1] - self.last_mouse_pos[1]

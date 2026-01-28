@@ -79,6 +79,7 @@ LOCATIONS = {
     'South Bay': (37.4900, -122.1200),
     'Richmond': (37.9200, -122.3534),
     'Oyster Point': (37.6620, -122.3780),
+    'YRA-X': (37.811667, -122.443333),
 }
 
 # ==================== Weather Scenarios ====================
@@ -147,6 +148,7 @@ CONTROLS = {
         'zoom_out': '[',  # Zoom out
         'toggle_wind': 'w',  # Toggle wind overlay
         'toggle_current': 'u',  # Toggle current overlay
+        'toggle_ladder_rungs': 'y',  # Toggle ladder rungs
         'help': 'h',  # Show help overlay
     },
     'marks': {
@@ -187,6 +189,17 @@ VECTOR_CACHE_INTERVAL = 1.0  # Refresh grid every N seconds (not every frame)
 # Filtering thresholds
 MIN_CURRENT_SPEED_KTS = 0.05  # Don't render currents weaker than this
 MIN_WIND_SPEED_KTS = 1.0  # Don't render winds weaker than this
+
+# ==================== Ladder Rungs Settings ====================
+LADDER_RUNG_SPACING_M = 200           # Meters between rungs (~0.1nm)
+LADDER_RUNG_COUNT = 5                 # Dotted rungs on each side
+LADDER_RUNG_LENGTH_M = 2000           # Length of each rung in meters
+LADDER_RUNG_MIN_WIND_SPEED = 2.0      # Min wind to render (kts)
+LADDER_RUNG_COLOR = (255, 200, 100)   # Amber - good contrast
+LADDER_RUNG_SOLID_WIDTH = 2           # Pixel width for solid rung
+LADDER_RUNG_DASH_WIDTH = 1            # Pixel width for dotted rungs
+LADDER_RUNG_DASH_LENGTH = 8           # Dash length in pixels
+LADDER_RUNG_GAP_LENGTH = 6            # Gap length in pixels
 
 # ==================== Breadcrumb Trail Settings ====================
 BREADCRUMB_INTERVAL = 5.0  # seconds between breadcrumb points

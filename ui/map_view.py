@@ -22,7 +22,16 @@ from config import (
     WIND_INDICATOR_RADIUS,
     WIND_INDICATOR_X_OFFSET,
     WIND_INDICATOR_Y_OFFSET,
-    VIEWPORT_CULL_MARGIN
+    VIEWPORT_CULL_MARGIN,
+    LADDER_RUNG_SPACING_M,
+    LADDER_RUNG_COUNT,
+    LADDER_RUNG_LENGTH_M,
+    LADDER_RUNG_MIN_WIND_SPEED,
+    LADDER_RUNG_COLOR,
+    LADDER_RUNG_SOLID_WIDTH,
+    LADDER_RUNG_DASH_WIDTH,
+    LADDER_RUNG_DASH_LENGTH,
+    LADDER_RUNG_GAP_LENGTH
 )
 
 
@@ -360,6 +369,123 @@ class MapView:
             dash_end = (x1 + t_end * dx, y1 + t_end * dy)
 
             pygame.draw.line(surface, color, dash_start, dash_end, width)
+
+    def _draw_dashed_line_params(self, surface, start, end, color, width, dash_length, gap_length):
+        """Draw a dashed line with custom dash/gap parameters."""
+        x1, y1 = start
+        x2, y2 = end
+
+        dx = x2 - x1
+        dy = y2 - y1
+        distance = math.sqrt(dx*dx + dy*dy)
+
+        if distance < 1:
+            return
+
+        pattern_length = dash_length + gap_length
+        num_dashes = int(distance / pattern_length)
+
+        for i in range(num_dashes + 1):
+            t_start = i * pattern_length / distance
+            t_end = min((i * pattern_length + dash_length) / distance, 1.0)
+
+            if t_start >= 1.0:
+                break
+
+            dash_start = (x1 + t_start * dx, y1 + t_start * dy)
+            dash_end = (x1 + t_end * dx, y1 + t_end * dy)
+
+            pygame.draw.line(surface, color, dash_start, dash_end, width)
+
+    def render_ladder_rungs(self, surface, boat, wind_dir, wind_speed):
+        """
+        Render ladder rungs perpendicular to wind direction.
+
+        Ladder rungs help visualize upwind/downwind positions relative to
+        the true wind. A solid line runs through the boat position, with
+        dotted lines at regular intervals upwind and downwind.
+
+        Args:
+            surface: Pygame surface to draw on
+            boat: Boat instance (for position)
+            wind_dir: True wind direction in degrees (FROM)
+            wind_speed: True wind speed in knots
+        """
+        # Skip if wind too light
+        if wind_speed < LADDER_RUNG_MIN_WIND_SPEED:
+            return
+
+        # Rungs are perpendicular to wind direction
+        # Wind direction is FROM, so rungs are perpendicular to this
+        rung_dir_rad = math.radians(wind_dir + 90)
+
+        # Half length of each rung
+        half_length_m = LADDER_RUNG_LENGTH_M / 2
+
+        # Calculate rung endpoints relative to a center point
+        def get_rung_endpoints(center_lat, center_lon):
+            """Calculate screen coordinates for rung endpoints."""
+            # Calculate delta in meters for perpendicular direction
+            dx_m = half_length_m * math.sin(rung_dir_rad)
+            dy_m = half_length_m * math.cos(rung_dir_rad)
+
+            # Convert to lat/lon offset
+            lat_factor = 1.0 / 111000  # meters to degrees lat
+            lon_factor = 1.0 / (111000 * math.cos(math.radians(center_lat)))
+
+            # Endpoint 1 (one side of rung)
+            lat1 = center_lat + dy_m * lat_factor
+            lon1 = center_lon + dx_m * lon_factor
+
+            # Endpoint 2 (other side)
+            lat2 = center_lat - dy_m * lat_factor
+            lon2 = center_lon - dx_m * lon_factor
+
+            # Convert to screen coordinates
+            screen1 = self.latlon_to_screen(lat1, lon1)
+            screen2 = self.latlon_to_screen(lat2, lon2)
+
+            return screen1, screen2
+
+        # Wind direction (where wind comes FROM) - offset upwind is in this direction
+        wind_rad = math.radians(wind_dir)
+
+        # Calculate offset position along wind axis
+        def get_offset_position(base_lat, base_lon, offset_m):
+            """Get lat/lon offset along wind direction axis."""
+            # Positive offset = upwind (toward where wind comes from)
+            dx_m = offset_m * math.sin(wind_rad)
+            dy_m = offset_m * math.cos(wind_rad)
+
+            lat_factor = 1.0 / 111000
+            lon_factor = 1.0 / (111000 * math.cos(math.radians(base_lat)))
+
+            new_lat = base_lat + dy_m * lat_factor
+            new_lon = base_lon + dx_m * lon_factor
+
+            return new_lat, new_lon
+
+        # Draw solid rung through boat position
+        p1, p2 = get_rung_endpoints(boat.lat, boat.lon)
+        pygame.draw.line(surface, LADDER_RUNG_COLOR, p1, p2, LADDER_RUNG_SOLID_WIDTH)
+
+        # Draw dotted rungs upwind (positive offset)
+        for i in range(1, LADDER_RUNG_COUNT + 1):
+            offset_m = i * LADDER_RUNG_SPACING_M
+            offset_lat, offset_lon = get_offset_position(boat.lat, boat.lon, offset_m)
+            p1, p2 = get_rung_endpoints(offset_lat, offset_lon)
+            self._draw_dashed_line_params(surface, p1, p2, LADDER_RUNG_COLOR,
+                                          LADDER_RUNG_DASH_WIDTH, LADDER_RUNG_DASH_LENGTH,
+                                          LADDER_RUNG_GAP_LENGTH)
+
+        # Draw dotted rungs downwind (negative offset)
+        for i in range(1, LADDER_RUNG_COUNT + 1):
+            offset_m = -i * LADDER_RUNG_SPACING_M
+            offset_lat, offset_lon = get_offset_position(boat.lat, boat.lon, offset_m)
+            p1, p2 = get_rung_endpoints(offset_lat, offset_lon)
+            self._draw_dashed_line_params(surface, p1, p2, LADDER_RUNG_COLOR,
+                                          LADDER_RUNG_DASH_WIDTH, LADDER_RUNG_DASH_LENGTH,
+                                          LADDER_RUNG_GAP_LENGTH)
 
     def render_wind_indicator(self, surface, wind_direction):
         """

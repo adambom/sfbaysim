@@ -433,7 +433,7 @@ class InstrumentPanel:
     def _render_buttons(self, surface, is_paused, controls=None):
         """Render clickable control buttons."""
         x = self.x + INSTRUMENT_PANEL_PADDING
-        y = self.height - 260  # Position near bottom
+        y = self.height - 295  # Position near bottom
 
         # Section title
         title = self.font_title.render("CONTROLS", True, COLOR_TEXT)
@@ -487,14 +487,21 @@ class InstrumentPanel:
         # Row 4: More overlays
         row_y += button_height + button_spacing
         marks_on = controls and controls.show_mark_lines
+        ladder_on = controls and controls.show_ladder_rungs
         help_on = controls and controls.show_help
 
         self.buttons['marks'] = Button(x, row_y, button_width, button_height, "MARKS",
                                        COLOR_GREEN if marks_on else COLOR_LABEL)
-        self.buttons['help'] = Button(x + button_width + button_spacing, row_y,
+        self.buttons['ladder'] = Button(x + button_width + button_spacing, row_y,
+                                        button_width, button_height, "LADDER",
+                                        COLOR_GREEN if ladder_on else COLOR_LABEL)
+        self.buttons['help'] = Button(x + (button_width + button_spacing) * 2, row_y,
                                       button_width, button_height, "HELP",
                                       COLOR_GREEN if help_on else COLOR_LABEL)
-        self.buttons['reset'] = Button(x + (button_width + button_spacing) * 2, row_y,
+
+        # Row 5: Reset
+        row_y += button_height + button_spacing
+        self.buttons['reset'] = Button(x, row_y,
                                        button_width, button_height, "RESET", COLOR_LABEL)
 
         # Row 5: Forecast preview (only when paused and not in rewind mode)
@@ -691,6 +698,11 @@ class InstrumentPanel:
         if 'marks' in self.buttons and self.buttons['marks'].check_click(mouse_pos):
             controls.show_mark_lines = not controls.show_mark_lines
             print(f"Mark lines {'ON' if controls.show_mark_lines else 'OFF'}")
+            return True
+
+        if 'ladder' in self.buttons and self.buttons['ladder'].check_click(mouse_pos):
+            controls.show_ladder_rungs = not controls.show_ladder_rungs
+            print(f"Ladder rungs {'ON' if controls.show_ladder_rungs else 'OFF'}")
             return True
 
         if 'help' in self.buttons and self.buttons['help'].check_click(mouse_pos):
@@ -927,6 +939,7 @@ class ControlsHelpOverlay:
             ("  Left drag", "Pan map"),
             ("  L key", "Toggle course lines"),
             ("  K key", "Toggle mark lines"),
+            ("  Y key", "Toggle ladder rungs"),
             ("  W key", "Toggle wind overlay"),
             ("  U key", "Toggle current overlay"),
             ("  H key", "Toggle this help"),

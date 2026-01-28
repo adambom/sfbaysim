@@ -311,6 +311,12 @@ def main():
         if controls.show_course_lines and controls.active_boat:
             map_view.render_course_lines(map_surface, controls.active_boat)
 
+        # Render ladder rungs if enabled (only for active boat)
+        if controls.show_ladder_rungs and controls.active_boat:
+            if wind_data:
+                map_view.render_ladder_rungs(map_surface, controls.active_boat,
+                                             wind_data[0], wind_data[1])
+
         # Render all boats
         for idx, boat in enumerate(boats):
             is_active = (idx == controls.active_boat_index)
