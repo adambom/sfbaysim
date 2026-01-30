@@ -74,7 +74,6 @@ def main():
     print(f"  Location: {config['location_name']}")
     print(f"  Position: ({config['lat']:.4f}, {config['lon']:.4f})")
     print(f"  Heading: {config['heading']}°")
-    print(f"  Forecast time: +{config['forecast_hours']} hours")
     print(f"  Scenario: {config['scenario'] or 'Real data'}")
     print(f"  Polar: {config['polar_path']}")
 
@@ -89,9 +88,18 @@ def main():
     boats = [boat]  # List of all boats
 
     # Initialize simulation time
-    sim_time = datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(hours=config['forecast_hours'])
-
-    print(f"Simulation time: {sim_time.strftime('%Y-%m-%d %H:%M:%S')} UTC (+{config['forecast_hours']}h)")
+    import time as time_module
+    if config.get('start_time'):
+        sim_time = config['start_time']
+        # Display in both UTC and local for clarity
+        local_offset = -time_module.timezone
+        local_time = sim_time + timedelta(seconds=local_offset)
+        tz_name = time_module.tzname[time_module.daylight]
+        print(f"Simulation time: {sim_time.strftime('%Y-%m-%d %H:%M:%S')} UTC")
+        print(f"                 {local_time.strftime('%Y-%m-%d %H:%M:%S')} {tz_name}")
+    else:
+        sim_time = datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(hours=config['forecast_hours'])
+        print(f"Simulation time: {sim_time.strftime('%Y-%m-%d %H:%M:%S')} UTC (+{config['forecast_hours']}h)")
 
     # Create data providers
     print("\nInitializing data providers...")

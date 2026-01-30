@@ -6,6 +6,8 @@ Interactive configuration dialog for simulation setup.
 import pygame
 import os
 import glob
+import time as time_module
+from datetime import datetime, timedelta, timezone
 from config import (
     LOCATIONS,
     SCENARIOS,
@@ -59,11 +61,22 @@ class StartupDialog:
         self.custom_lat = None
         self.custom_lon = None
 
-        # Text input state
+        # Text input state for lat/lon
         self.editing_lat = False
         self.editing_lon = False
         self.lat_input = ""
         self.lon_input = ""
+
+        # Time mode state
+        self.time_mode = 'offset'       # 'offset' or 'specific'
+        self.specific_time_utc = None   # datetime in UTC when in specific mode
+        self.editing_time = False       # text input active for time
+        self.time_input = ""            # text input buffer
+        self.time_field_rect = None     # (x, y, w, h) for click detection
+
+        # Get local timezone info for display
+        self.local_tz_offset = -time_module.timezone  # Offset in seconds from UTC
+        self.local_tz_name = time_module.tzname[time_module.daylight]  # e.g., "PST" or "PDT"
 
         # Fonts
         self.font_title = pygame.font.SysFont('monospace', DIALOG_TITLE_SIZE, bold=True)
@@ -182,6 +195,75 @@ class StartupDialog:
             self.lat_input = ""
             self.lon_input = ""
 
+    def _utc_to_local(self, utc_dt):
+        """Convert UTC datetime to local timezone for display."""
+        return utc_dt + timedelta(seconds=self.local_tz_offset)
+
+    def _local_to_utc(self, local_dt):
+        """Convert local datetime to UTC for storage."""
+        return local_dt - timedelta(seconds=self.local_tz_offset)
+
+    def _format_local_time(self, utc_dt):
+        """Format UTC datetime as local time string."""
+        local = self._utc_to_local(utc_dt)
+        return f"{local.strftime('%Y-%m-%d %H:%M')} {self.local_tz_name}"
+
+    def _clamp_specific_time(self):
+        """Clamp specific_time_utc to valid range (now to now+48h)."""
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
+        max_time = now + timedelta(hours=48)
+        self.specific_time_utc = max(now, min(max_time, self.specific_time_utc))
+
+    def _apply_time_input(self):
+        """Parse and apply text input for datetime."""
+        try:
+            text = self.time_input.strip()
+            if ' ' in text:
+                # Full datetime: "2026-01-29 14:35"
+                local_dt = datetime.strptime(text, '%Y-%m-%d %H:%M')
+            else:
+                # Time only: "14:35" - use current date
+                local_dt = self._utc_to_local(self.specific_time_utc)
+                time_part = datetime.strptime(text, '%H:%M')
+                local_dt = local_dt.replace(hour=time_part.hour, minute=time_part.minute)
+
+            self.specific_time_utc = self._local_to_utc(local_dt)
+            self._clamp_specific_time()
+        except ValueError:
+            print("Invalid datetime format. Use 'YYYY-MM-DD HH:MM' or 'HH:MM'")
+        finally:
+            self.time_input = ""
+            self.editing_time = False
+
+    def _check_time_field_click(self, mouse_pos):
+        """
+        Check if user clicked on time input field in specific mode.
+
+        Args:
+            mouse_pos: (x, y) tuple
+
+        Returns:
+            True if clicked on time input field, False otherwise
+        """
+        if self.time_mode != 'specific':
+            return False
+
+        # Time field position - stored during rendering
+        if not hasattr(self, 'time_field_rect') or self.time_field_rect is None:
+            return False
+
+        x, y, w, h = self.time_field_rect
+
+        if (x <= mouse_pos[0] <= x + w and
+            y <= mouse_pos[1] <= y + h):
+            self.editing_time = True
+            if not self.time_input and self.specific_time_utc is not None:
+                local = self._utc_to_local(self.specific_time_utc)
+                self.time_input = local.strftime('%Y-%m-%d %H:%M')
+            return True
+
+        return False
+
     def show(self):
         """
         Display dialog and wait for user configuration.
@@ -201,6 +283,22 @@ class StartupDialog:
                     return None
 
                 elif event.type == pygame.KEYDOWN:
+                    # Handle text input for time in specific mode
+                    if self.editing_time:
+                        if event.key == pygame.K_RETURN:
+                            self._apply_time_input()
+                        elif event.key == pygame.K_ESCAPE:
+                            self.editing_time = False
+                            self.time_input = ""
+                        elif event.key == pygame.K_BACKSPACE:
+                            self.time_input = self.time_input[:-1]
+                        else:
+                            # Add character if valid (numbers, minus, colon, space)
+                            char = event.unicode
+                            if char in '0123456789-: ':
+                                self.time_input += char
+                        continue  # Skip other key handling while editing time
+
                     # Handle text input for lat/lon in custom mode
                     if self.editing_lat or self.editing_lon:
                         if event.key == pygame.K_RETURN:
@@ -230,6 +328,9 @@ class StartupDialog:
                                     self.lon_input += char
                         continue  # Skip other key handling while editing
 
+                    # Check for shift key for fine-grained time adjustment
+                    shift_held = pygame.key.get_mods() & pygame.KMOD_SHIFT
+
                     if event.key == pygame.K_UP:
                         self.selected_location = (self.selected_location - 1) % len(self.locations)
                         # Exit custom mode if we move away from Custom
@@ -242,26 +343,64 @@ class StartupDialog:
                         if self.locations[self.selected_location] != 'Custom...':
                             self.custom_mode = False
 
+                    elif event.key == pygame.K_PAGEUP:
+                        if self.time_mode == 'specific' and self.specific_time_utc:
+                            self.specific_time_utc += timedelta(days=1)
+                            self._clamp_specific_time()
+
+                    elif event.key == pygame.K_PAGEDOWN:
+                        if self.time_mode == 'specific' and self.specific_time_utc:
+                            self.specific_time_utc -= timedelta(days=1)
+                            self._clamp_specific_time()
+
                     elif event.key == pygame.K_LEFT:
-                        self.selected_heading = (self.selected_heading - 10) % 360
+                        if self.time_mode == 'specific' and self.specific_time_utc:
+                            self.specific_time_utc -= timedelta(hours=1)
+                            self._clamp_specific_time()
+                        else:
+                            self.selected_heading = (self.selected_heading - 10) % 360
 
                     elif event.key == pygame.K_RIGHT:
-                        self.selected_heading = (self.selected_heading + 10) % 360
+                        if self.time_mode == 'specific' and self.specific_time_utc:
+                            self.specific_time_utc += timedelta(hours=1)
+                            self._clamp_specific_time()
+                        else:
+                            self.selected_heading = (self.selected_heading + 10) % 360
+
+                    elif event.key == pygame.K_f:
+                        # Toggle time mode
+                        if self.time_mode == 'offset':
+                            self.time_mode = 'specific'
+                            # Initialize specific_time from current offset (in UTC)
+                            self.specific_time_utc = datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(hours=self.forecast_hours)
+                        else:
+                            self.time_mode = 'offset'
 
                     elif event.key == pygame.K_t:
-                        # Cycle forecast hours: 0, 6, 12, 18, 24, 36, 48
-                        hours_options = [0, 6, 12, 18, 24, 36, 48]
-                        current_idx = hours_options.index(self.forecast_hours) if self.forecast_hours in hours_options else 0
-                        next_idx = (current_idx + 1) % len(hours_options)
-                        self.forecast_hours = hours_options[next_idx]
+                        if self.time_mode == 'offset':
+                            # Cycle forecast hours: 0, 6, 12, 18, 24, 36, 48
+                            hours_options = [0, 6, 12, 18, 24, 36, 48]
+                            current_idx = hours_options.index(self.forecast_hours) if self.forecast_hours in hours_options else 0
+                            next_idx = (current_idx + 1) % len(hours_options)
+                            self.forecast_hours = hours_options[next_idx]
 
                     elif event.key == pygame.K_COMMA:
-                        # Decrease forecast hour by 1
-                        self.forecast_hours = max(0, self.forecast_hours - 1)
+                        if self.time_mode == 'specific' and self.specific_time_utc:
+                            delta = timedelta(minutes=1) if shift_held else timedelta(minutes=10)
+                            self.specific_time_utc -= delta
+                            self._clamp_specific_time()
+                        else:
+                            # Decrease forecast hour by 1
+                            self.forecast_hours = max(0, self.forecast_hours - 1)
 
                     elif event.key == pygame.K_PERIOD:
-                        # Increase forecast hour by 1
-                        self.forecast_hours = min(48, self.forecast_hours + 1)
+                        if self.time_mode == 'specific' and self.specific_time_utc:
+                            delta = timedelta(minutes=1) if shift_held else timedelta(minutes=10)
+                            self.specific_time_utc += delta
+                            self._clamp_specific_time()
+                        else:
+                            # Increase forecast hour by 1
+                            self.forecast_hours = min(48, self.forecast_hours + 1)
 
                     elif event.key == pygame.K_s:
                         self.selected_scenario = (self.selected_scenario + 1) % len(self.scenarios)
@@ -285,9 +424,13 @@ class StartupDialog:
                         return None
 
                 elif event.type == pygame.MOUSEBUTTONDOWN:
-                    # Check if in custom mode
-                    if self.locations[self.selected_location] == 'Custom...' and self.geography:
-                        if event.button == 1:  # Left click
+                    if event.button == 1:  # Left click
+                        # Check for time field click in specific mode
+                        if self._check_time_field_click(event.pos):
+                            continue
+
+                        # Check if in custom mode
+                        if self.locations[self.selected_location] == 'Custom...' and self.geography:
                             # Check if clicking on input fields
                             if self._check_input_field_click(event.pos):
                                 continue
@@ -314,16 +457,26 @@ class StartupDialog:
         scenario_name = self.scenarios[self.selected_scenario]
         polar_path = self.polar_files[self.selected_polar]
 
-        return {
+        # Build config dict
+        config = {
             'lat': lat,
             'lon': lon,
             'heading': self.selected_heading,
-            'forecast_hours': self.forecast_hours,
             'scenario': scenario_name if scenario_name != 'None' else None,
             'location_name': location_name,
             'polar_path': polar_path,
             'target_speed_factor': self.target_speed_factor
         }
+
+        # Return start_time_utc for specific mode
+        if self.time_mode == 'specific' and self.specific_time_utc:
+            config['start_time'] = self.specific_time_utc  # UTC datetime
+            config['forecast_hours'] = 0  # Not used
+        else:
+            config['start_time'] = None
+            config['forecast_hours'] = self.forecast_hours
+
+        return config
 
     def _render(self):
         """Render dialog contents."""
@@ -368,18 +521,54 @@ class StartupDialog:
         y += 40
 
         # Time mode selection
-        self._render_section(f"FORECAST TIME: +{self.forecast_hours}h", y)
-        y += 30
-        if self.forecast_hours == 0:
-            time_desc = "Current time (now)"
+        if self.time_mode == 'offset':
+            self._render_section(f"FORECAST TIME: +{self.forecast_hours}h", y)
+            y += 30
+            if self.forecast_hours == 0:
+                time_desc = "Current time (now)"
+            else:
+                time_desc = f"{self.forecast_hours} hours in the future"
+            text = self.font_option.render(f"  {time_desc}", True, COLOR_GREEN)
+            self.screen.blit(text, (200, y))
+            y += 25
+            hint = self.font_description.render("F: specific time | T: cycle (0,6,12,18,24,36,48) | ,/. : ±1 hour", True, COLOR_LABEL)
+            self.screen.blit(hint, (200, y))
+            y += 40
         else:
-            time_desc = f"{self.forecast_hours} hours in the future"
-        text = self.font_option.render(f"  {time_desc}", True, COLOR_GREEN)
-        self.screen.blit(text, (200, y))
-        y += 25
-        hint = self.font_description.render("T: cycle (0,6,12,18,24,36,48) | ,/. : ±1 hour", True, COLOR_LABEL)
-        self.screen.blit(hint, (200, y))
-        y += 40
+            # Specific time mode
+            time_str = self._format_local_time(self.specific_time_utc)
+            self._render_section(f"START TIME: {time_str}", y)
+            y += 30
+
+            # Draw clickable input field
+            input_x = 200
+            input_y = y
+            input_width = 300
+            input_height = 28
+            # Store rect for click detection
+            self.time_field_rect = (input_x, input_y, input_width, input_height)
+            box_color = COLOR_GREEN if self.editing_time else COLOR_LABEL
+            pygame.draw.rect(self.screen, (30, 30, 30), (input_x, input_y, input_width, input_height))
+            pygame.draw.rect(self.screen, box_color, (input_x, input_y, input_width, input_height), 2)
+
+            # Show input text or current value
+            if self.editing_time:
+                display_text = self.time_input + "_"
+            else:
+                display_text = time_str
+
+            text_surface = self.font_description.render(display_text, True, COLOR_WHITE)
+            self.screen.blit(text_surface, (input_x + 5, input_y + 5))
+            y += 35
+
+            hint = self.font_description.render(
+                "F: offset mode | PgUp/PgDn: ±day | ←→: ±hour | ,/.: ±10min | Shift+,/.: ±1min",
+                True, COLOR_LABEL)
+            self.screen.blit(hint, (200, y))
+            y += 18
+            hint2 = self.font_description.render("Click field to type datetime", True, COLOR_LABEL)
+            self.screen.blit(hint2, (200, y))
+            y += 30
 
         # Scenario selection
         self._render_section("SCENARIO", y)
@@ -418,7 +607,10 @@ class StartupDialog:
 
         # Instructions
         y = self.screen_height - 120
-        inst1 = self.font_description.render("UP/DOWN: location | LEFT/RIGHT: heading | T: forecast time | ,/.: ±1h", True, COLOR_WHITE)
+        if self.time_mode == 'offset':
+            inst1 = self.font_description.render("UP/DOWN: location | LEFT/RIGHT: heading | F: specific time | T: cycle time", True, COLOR_WHITE)
+        else:
+            inst1 = self.font_description.render("UP/DOWN: location | PgUp/PgDn: ±day | ←→: ±hour | ,/.: ±10min", True, COLOR_WHITE)
         inst2 = self.font_description.render("S: scenario | P: polar | +/-: target speed", True, COLOR_WHITE)
         inst3 = self.font_option.render("Press ENTER to start", True, COLOR_GREEN)
 
@@ -550,7 +742,12 @@ class StartupDialog:
         self.screen.blit(text, (x, y))
         y += 25
 
-        text = self.font_description.render(f"Forecast: +{self.forecast_hours}h (T/,/.)", True, COLOR_LABEL)
+        # Show time mode in custom mode
+        if self.time_mode == 'offset':
+            text = self.font_description.render(f"Forecast: +{self.forecast_hours}h (F/T/,/.)", True, COLOR_LABEL)
+        else:
+            time_str = self._format_local_time(self.specific_time_utc)
+            text = self.font_description.render(f"Time: {time_str} (F)", True, COLOR_LABEL)
         self.screen.blit(text, (x, y))
         y += 25
 
