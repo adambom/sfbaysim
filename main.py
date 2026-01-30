@@ -333,6 +333,14 @@ def main():
                 map_view.render_ladder_rungs(map_surface, controls.active_boat,
                                              ladder_wind_dir, ladder_wind_speed)
 
+        # Render laylines if enabled
+        if controls.show_laylines and controls.waypoints:
+            if wind_data:
+                layline_wind_dir = (wind_data[0] + controls.wind_angle_offset) % 360
+                layline_wind_speed = wind_data[1] * controls.wind_speed_scale
+                map_view.render_laylines(map_surface, controls.waypoints,
+                                         layline_wind_dir, layline_wind_speed, polar)
+
         # Render all boats
         for idx, boat in enumerate(boats):
             is_active = (idx == controls.active_boat_index)

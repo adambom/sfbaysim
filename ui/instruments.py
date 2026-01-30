@@ -525,20 +525,23 @@ class InstrumentPanel:
         row_y += button_height + button_spacing
         marks_on = controls and controls.show_mark_lines
         ladder_on = controls and controls.show_ladder_rungs
-        help_on = controls and controls.show_help
+        laylines_on = controls and controls.show_laylines
 
         self.buttons['marks'] = Button(x, row_y, button_width, button_height, "MARKS",
                                        COLOR_GREEN if marks_on else COLOR_LABEL)
         self.buttons['ladder'] = Button(x + button_width + button_spacing, row_y,
                                         button_width, button_height, "LADDER",
                                         COLOR_GREEN if ladder_on else COLOR_LABEL)
-        self.buttons['help'] = Button(x + (button_width + button_spacing) * 2, row_y,
-                                      button_width, button_height, "HELP",
-                                      COLOR_GREEN if help_on else COLOR_LABEL)
+        self.buttons['laylines'] = Button(x + (button_width + button_spacing) * 2, row_y,
+                                          button_width, button_height, "LAYLINES",
+                                          COLOR_GREEN if laylines_on else COLOR_LABEL)
 
-        # Row 5: Reset
+        # Row 5: Help and Reset
         row_y += button_height + button_spacing
-        self.buttons['reset'] = Button(x, row_y,
+        help_on = controls and controls.show_help
+        self.buttons['help'] = Button(x, row_y, button_width, button_height, "HELP",
+                                      COLOR_GREEN if help_on else COLOR_LABEL)
+        self.buttons['reset'] = Button(x + button_width + button_spacing, row_y,
                                        button_width, button_height, "RESET", COLOR_LABEL)
 
         # Row 5: Forecast preview (only when paused and not in rewind mode)
@@ -740,6 +743,11 @@ class InstrumentPanel:
         if 'ladder' in self.buttons and self.buttons['ladder'].check_click(mouse_pos):
             controls.show_ladder_rungs = not controls.show_ladder_rungs
             print(f"Ladder rungs {'ON' if controls.show_ladder_rungs else 'OFF'}")
+            return True
+
+        if 'laylines' in self.buttons and self.buttons['laylines'].check_click(mouse_pos):
+            controls.show_laylines = not controls.show_laylines
+            print(f"Laylines {'ON' if controls.show_laylines else 'OFF'}")
             return True
 
         if 'help' in self.buttons and self.buttons['help'].check_click(mouse_pos):
@@ -982,6 +990,7 @@ class ControlsHelpOverlay:
             ("  L key", "Toggle course lines"),
             ("  K key", "Toggle mark lines"),
             ("  Y key", "Toggle ladder rungs"),
+            ("  J key", "Toggle laylines"),
             ("  W key", "Toggle wind overlay"),
             ("  U key", "Toggle current overlay"),
             ("  H key", "Toggle this help"),

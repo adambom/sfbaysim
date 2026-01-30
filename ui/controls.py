@@ -39,6 +39,7 @@ class ControlHandler:
         self.show_course_lines = False  # Heading and COG projection lines
         self.show_mark_lines = False  # Dashed lines to target marks
         self.show_ladder_rungs = False  # Ladder rungs overlay
+        self.show_laylines = False  # Laylines at marks
 
         # Forecast preview mode (for looking ahead in time while paused)
         self.forecast_preview_mode = False
@@ -216,6 +217,11 @@ class ControlHandler:
                 self.show_ladder_rungs = not self.show_ladder_rungs
                 status = "ON" if self.show_ladder_rungs else "OFF"
                 print(f"Ladder rungs {status}")
+
+            elif event.key == pygame.K_j:
+                self.show_laylines = not self.show_laylines
+                status = "ON" if self.show_laylines else "OFF"
+                print(f"Laylines {status}")
 
             # ===== WIND MODIFIERS =====
             elif event.key == pygame.K_z:
@@ -537,6 +543,10 @@ class ControlHandler:
         boat_name = f"Boat {len(self.boats) + 1}"
         from core.boat import Boat
         new_boat = Boat(self.polar, lat, lon, heading, target_speed, boat_name, color)
+
+        # Inherit course progress from active boat
+        new_boat.current_waypoint_index = self.active_boat.current_waypoint_index
+        new_boat.marks_rounded = self.active_boat.marks_rounded
 
         self.boats.append(new_boat)
         self.active_boat_index = len(self.boats) - 1

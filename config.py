@@ -208,6 +208,13 @@ LADDER_RUNG_DASH_WIDTH = 1            # Pixel width for dotted rungs
 LADDER_RUNG_DASH_LENGTH = 8           # Dash length in pixels
 LADDER_RUNG_GAP_LENGTH = 6            # Gap length in pixels
 
+# ==================== Laylines Settings ====================
+LAYLINE_LENGTH_M = 5556               # 3 nautical miles
+LAYLINE_MIN_WIND_SPEED = 2.0          # Min wind to render (kts)
+LAYLINE_STARBOARD_COLOR = (0, 200, 0)     # Green
+LAYLINE_PORT_COLOR = (200, 0, 0)          # Red
+LAYLINE_WIDTH = 2                     # Pixel width
+
 # ==================== Breadcrumb Trail Settings ====================
 BREADCRUMB_INTERVAL = 5.0  # seconds between breadcrumb points
 MAX_BREADCRUMBS = 2000  # Maximum trail length

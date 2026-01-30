@@ -31,7 +31,12 @@ from config import (
     LADDER_RUNG_SOLID_WIDTH,
     LADDER_RUNG_DASH_WIDTH,
     LADDER_RUNG_DASH_LENGTH,
-    LADDER_RUNG_GAP_LENGTH
+    LADDER_RUNG_GAP_LENGTH,
+    LAYLINE_LENGTH_M,
+    LAYLINE_MIN_WIND_SPEED,
+    LAYLINE_STARBOARD_COLOR,
+    LAYLINE_PORT_COLOR,
+    LAYLINE_WIDTH,
 )
 
 
@@ -486,6 +491,96 @@ class MapView:
             self._draw_dashed_line_params(surface, p1, p2, LADDER_RUNG_COLOR,
                                           LADDER_RUNG_DASH_WIDTH, LADDER_RUNG_DASH_LENGTH,
                                           LADDER_RUNG_GAP_LENGTH)
+
+    def render_laylines(self, surface, waypoints, wind_dir, wind_speed, polar):
+        """
+        Render laylines at each waypoint showing optimal sailing angles.
+
+        Laylines show the optimal paths for approaching marks upwind and downwind.
+        Green lines indicate starboard tack/gybe, red lines indicate port.
+
+        Args:
+            surface: Pygame surface to draw on
+            waypoints: List of waypoint dicts with 'lat' and 'lon' keys
+            wind_dir: True wind direction in degrees (FROM)
+            wind_speed: True wind speed in knots
+            polar: PolarTable instance for optimal angles
+        """
+        # Skip if wind too light
+        if wind_speed < LAYLINE_MIN_WIND_SPEED:
+            return
+
+        # Get optimal angles from polar
+        optimal_upwind = polar.get_optimal_upwind_angle(wind_speed)
+        optimal_downwind = polar.get_optimal_downwind_angle(wind_speed)
+
+        def calculate_endpoint(lat, lon, heading_deg, distance_m):
+            """Calculate endpoint given start position, heading and distance."""
+            heading_rad = math.radians(heading_deg)
+
+            # Delta in meters
+            dx_m = distance_m * math.sin(heading_rad)
+            dy_m = distance_m * math.cos(heading_rad)
+
+            # Convert to lat/lon
+            lat_factor = 1.0 / 111000
+            lon_factor = 1.0 / (111000 * math.cos(math.radians(lat)))
+
+            end_lat = lat + dy_m * lat_factor
+            end_lon = lon + dx_m * lon_factor
+
+            return end_lat, end_lon
+
+        # Draw laylines for each waypoint
+        for waypoint in waypoints:
+            mark_lat = waypoint['lat']
+            mark_lon = waypoint['lon']
+            mark_screen = self.latlon_to_screen(mark_lat, mark_lon)
+
+            # Upwind laylines (boat sails toward wind)
+            # Wind direction is FROM, upwind direction is same as wind_dir
+            # Starboard layline: wind_dir + optimal_twa + 180 (drawing FROM mark)
+            # Port layline: wind_dir - optimal_twa + 180
+
+            upwind_starboard_heading = (wind_dir + optimal_upwind + 180) % 360
+            upwind_port_heading = (wind_dir - optimal_upwind + 180) % 360
+
+            # Calculate endpoints
+            up_stbd_lat, up_stbd_lon = calculate_endpoint(
+                mark_lat, mark_lon, upwind_starboard_heading, LAYLINE_LENGTH_M)
+            up_port_lat, up_port_lon = calculate_endpoint(
+                mark_lat, mark_lon, upwind_port_heading, LAYLINE_LENGTH_M)
+
+            up_stbd_screen = self.latlon_to_screen(up_stbd_lat, up_stbd_lon)
+            up_port_screen = self.latlon_to_screen(up_port_lat, up_port_lon)
+
+            # Draw upwind laylines
+            pygame.draw.line(surface, LAYLINE_STARBOARD_COLOR, mark_screen, up_stbd_screen, LAYLINE_WIDTH)
+            pygame.draw.line(surface, LAYLINE_PORT_COLOR, mark_screen, up_port_screen, LAYLINE_WIDTH)
+
+            # Downwind laylines (boat sails away from wind)
+            # Downwind direction is opposite of wind (wind_dir + 180)
+            # Starboard layline: (wind_dir + 180) + (180 - optimal_downwind) + 180
+            # Simplified: wind_dir + optimal_downwind (since 180 + 180 - optimal + 180 = 180 + 360 - optimal)
+            # Actually: downwind approach means coming from downwind of the mark
+            # Starboard: wind_dir + (180 - optimal_downwind) + 180 = wind_dir - optimal_downwind
+            # Port: wind_dir - (180 - optimal_downwind) + 180 = wind_dir + optimal_downwind
+
+            downwind_starboard_heading = (wind_dir - optimal_downwind) % 360
+            downwind_port_heading = (wind_dir + optimal_downwind) % 360
+
+            # Calculate endpoints
+            dn_stbd_lat, dn_stbd_lon = calculate_endpoint(
+                mark_lat, mark_lon, downwind_starboard_heading, LAYLINE_LENGTH_M)
+            dn_port_lat, dn_port_lon = calculate_endpoint(
+                mark_lat, mark_lon, downwind_port_heading, LAYLINE_LENGTH_M)
+
+            dn_stbd_screen = self.latlon_to_screen(dn_stbd_lat, dn_stbd_lon)
+            dn_port_screen = self.latlon_to_screen(dn_port_lat, dn_port_lon)
+
+            # Draw downwind laylines
+            pygame.draw.line(surface, LAYLINE_STARBOARD_COLOR, mark_screen, dn_stbd_screen, LAYLINE_WIDTH)
+            pygame.draw.line(surface, LAYLINE_PORT_COLOR, mark_screen, dn_port_screen, LAYLINE_WIDTH)
 
     def render_wind_indicator(self, surface, wind_direction):
         """
