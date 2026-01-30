@@ -151,6 +151,13 @@ CONTROLS = {
         'toggle_ladder_rungs': 'y',  # Toggle ladder rungs
         'help': 'h',  # Show help overlay
     },
+    'wind_modifiers': {
+        'speed_down': 'z',  # Decrease wind speed by 5%
+        'speed_up': 'x',  # Increase wind speed by 5%
+        'angle_ccw': 'q',  # Rotate wind CCW by 2°
+        'angle_cw': 'e',  # Rotate wind CW by 2°
+        'reset': 'W',  # Reset wind modifiers (Shift+W)
+    },
     'marks': {
         'drop_mark': 'm',  # Drop waypoint at boat position
         'clear_marks': 'M',  # Clear all waypoints (Shift+M)

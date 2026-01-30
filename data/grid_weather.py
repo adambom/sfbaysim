@@ -41,7 +41,8 @@ class GridWeatherProvider:
         self.cache_time = None
         self.cache_sim_time = None
 
-    def get_grid_data(self, sim_time, center_lat, center_lon, viewport_width_m, viewport_height_m):
+    def get_grid_data(self, sim_time, center_lat, center_lon, viewport_width_m, viewport_height_m,
+                       angle_offset=0.0, speed_scale=1.0):
         """
         Generate grid of wind vectors in viewport.
 
@@ -51,6 +52,8 @@ class GridWeatherProvider:
             center_lon: Viewport center longitude
             viewport_width_m: Viewport width in meters
             viewport_height_m: Viewport height in meters
+            angle_offset: Degrees to rotate wind direction (positive = clockwise)
+            speed_scale: Multiplier for wind speed (1.0 = 100%)
 
         Returns:
             List of (lat, lon, direction, speed) tuples
@@ -61,6 +64,12 @@ class GridWeatherProvider:
         if (self.cache is not None and
             self.cache_time is not None and
             (current_time - self.cache_time) < VECTOR_CACHE_INTERVAL):
+            # Apply modifiers to cached data (raw data stays cached)
+            if angle_offset != 0.0 or speed_scale != 1.0:
+                return [
+                    (lat, lon, (direction + angle_offset) % 360, speed * speed_scale)
+                    for lat, lon, direction, speed in self.cache
+                ]
             return self.cache
 
         # Generate grid points
@@ -111,6 +120,12 @@ class GridWeatherProvider:
         if self._cache_count <= 3:
             print(f"  Wind grid refreshed: {len(result)} vectors")
 
+        # Apply modifiers to freshly generated data
+        if angle_offset != 0.0 or speed_scale != 1.0:
+            return [
+                (lat, lon, (direction + angle_offset) % 360, speed * speed_scale)
+                for lat, lon, direction, speed in result
+            ]
         return result
 
 

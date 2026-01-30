@@ -177,6 +177,9 @@ def main():
                     wind_data = weather.get_wind(sim_time, boat.lat, boat.lon)
                     if wind_data:
                         wind_dir, wind_speed = wind_data
+                        # Apply user wind modifiers
+                        wind_dir = (wind_dir + controls.wind_angle_offset) % 360
+                        wind_speed = wind_speed * controls.wind_speed_scale
                     else:
                         # Fallback
                         wind_dir, wind_speed = 315, 10
@@ -292,7 +295,9 @@ def main():
                 map_view.center_lat,
                 map_view.center_lon,
                 viewport_width_m,
-                viewport_height_m
+                viewport_height_m,
+                angle_offset=controls.wind_angle_offset,
+                speed_scale=controls.wind_speed_scale
             )
             overlays.render_wind_field(map_surface, wind_grid_data, pygame.mouse.get_pos())
 
@@ -314,8 +319,11 @@ def main():
         # Render ladder rungs if enabled (only for active boat)
         if controls.show_ladder_rungs and controls.active_boat:
             if wind_data:
+                # Apply wind modifiers to ladder rungs
+                ladder_wind_dir = (wind_data[0] + controls.wind_angle_offset) % 360
+                ladder_wind_speed = wind_data[1] * controls.wind_speed_scale
                 map_view.render_ladder_rungs(map_surface, controls.active_boat,
-                                             wind_data[0], wind_data[1])
+                                             ladder_wind_dir, ladder_wind_speed)
 
         # Render all boats
         for idx, boat in enumerate(boats):
@@ -326,9 +334,12 @@ def main():
         if controls.forecast_preview_mode and controls.paused:
             preview_wind = weather.get_wind(display_time, map_view.center_lat, map_view.center_lon)
             if preview_wind:
-                map_view.render_wind_indicator(map_surface, preview_wind[0])
+                preview_dir = (preview_wind[0] + controls.wind_angle_offset) % 360
+                map_view.render_wind_indicator(map_surface, preview_dir)
         elif wind_data:
-            map_view.render_wind_indicator(map_surface, wind_data[0])
+            # Apply wind angle offset to indicator
+            indicator_dir = (wind_data[0] + controls.wind_angle_offset) % 360
+            map_view.render_wind_indicator(map_surface, indicator_dir)
 
         # Blit map to screen
         screen.blit(map_surface, (0, 0))

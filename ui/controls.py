@@ -57,6 +57,10 @@ class ControlHandler:
         self.dragging_boat = False  # True when dragging active boat
         self.last_mouse_pos = None
 
+        # Wind modifiers
+        self.wind_speed_scale = 1.0      # 1.0 = 100% (no change)
+        self.wind_angle_offset = 0.0     # degrees offset (positive = clockwise)
+
     @property
     def active_boat(self):
         """Get the currently active boat."""
@@ -181,9 +185,14 @@ class ControlHandler:
 
             # ===== OVERLAY TOGGLES =====
             elif event.key == pygame.K_w:
-                self.show_wind_overlay = not self.show_wind_overlay
-                status = "ON" if self.show_wind_overlay else "OFF"
-                print(f"Wind overlay {status}")
+                mods = pygame.key.get_mods()
+                if mods & pygame.KMOD_SHIFT:
+                    self.reset_wind_modifiers()
+                    print("Wind modifiers reset (100% speed, 0° offset)")
+                else:
+                    self.show_wind_overlay = not self.show_wind_overlay
+                    status = "ON" if self.show_wind_overlay else "OFF"
+                    print(f"Wind overlay {status}")
 
             elif event.key == pygame.K_u:
                 self.show_current_overlay = not self.show_current_overlay
@@ -207,6 +216,23 @@ class ControlHandler:
                 self.show_ladder_rungs = not self.show_ladder_rungs
                 status = "ON" if self.show_ladder_rungs else "OFF"
                 print(f"Ladder rungs {status}")
+
+            # ===== WIND MODIFIERS =====
+            elif event.key == pygame.K_z:
+                self.adjust_wind_speed_scale(-0.05)  # -5%
+                print(f"Wind speed: {self.wind_speed_scale*100:.0f}%")
+
+            elif event.key == pygame.K_x:
+                self.adjust_wind_speed_scale(0.05)   # +5%
+                print(f"Wind speed: {self.wind_speed_scale*100:.0f}%")
+
+            elif event.key == pygame.K_q:
+                self.adjust_wind_angle_offset(-2)    # -2 degrees (CCW)
+                print(f"Wind angle offset: {self.wind_angle_offset:+.0f}°")
+
+            elif event.key == pygame.K_e:
+                self.adjust_wind_angle_offset(2)     # +2 degrees (CW)
+                print(f"Wind angle offset: {self.wind_angle_offset:+.0f}°")
 
             # ===== TIME REWIND MODE =====
             elif event.key == pygame.K_BACKQUOTE:
@@ -442,6 +468,22 @@ class ControlHandler:
             Speed multiplier (0.0 to 10.0)
         """
         return self.speed_multipliers[self.sim_speed_index]
+
+    def adjust_wind_speed_scale(self, delta):
+        """Adjust wind speed scale by delta (e.g., +0.05 = +5%)."""
+        self.wind_speed_scale = max(0.0, min(2.0, self.wind_speed_scale + delta))
+
+    def adjust_wind_angle_offset(self, delta):
+        """Adjust wind angle offset by delta degrees."""
+        self.wind_angle_offset = (self.wind_angle_offset + delta) % 360
+        # Normalize to -180 to +180 for display
+        if self.wind_angle_offset > 180:
+            self.wind_angle_offset -= 360
+
+    def reset_wind_modifiers(self):
+        """Reset wind to baseline values."""
+        self.wind_speed_scale = 1.0
+        self.wind_angle_offset = 0.0
 
     def _check_boat_click(self, mouse_pos):
         """

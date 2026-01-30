@@ -152,7 +152,7 @@ class InstrumentPanel:
         y_pos = self._render_time_panel(surface, y_pos, sim_time, sim_speed, load_progress, boat.elapsed_time)
         y_pos = self._render_speed_panel(surface, y_pos, boat, waypoints)
         y_pos = self._render_compass_panel(surface, y_pos, boat)
-        y_pos = self._render_wind_panel(surface, y_pos, boat)
+        y_pos = self._render_wind_panel(surface, y_pos, boat, controls)
         y_pos = self._render_current_panel(surface, y_pos, boat)
         y_pos = self._render_stats_panel(surface, y_pos, boat, waypoints)
 
@@ -298,7 +298,7 @@ class InstrumentPanel:
         y_pos += 10
         return y_pos
 
-    def _render_wind_panel(self, surface, y_pos, boat):
+    def _render_wind_panel(self, surface, y_pos, boat, controls=None):
         """Render wind panel: TWD, TWA, TWS, AWA, AWS."""
         x = self.x + INSTRUMENT_PANEL_PADDING
         from core.physics import normalize_angle
@@ -306,6 +306,13 @@ class InstrumentPanel:
         # Title
         title = self.font_title.render("WIND", True, COLOR_TEXT)
         surface.blit(title, (x, y_pos))
+
+        # Show wind modifiers if not at defaults
+        if controls and (controls.wind_speed_scale != 1.0 or controls.wind_angle_offset != 0.0):
+            mod_text = f"[{controls.wind_speed_scale*100:.0f}% {controls.wind_angle_offset:+.0f}°]"
+            mod_label = self.font_small.render(mod_text, True, (255, 200, 100))
+            surface.blit(mod_label, (x + 70, y_pos + 2))
+
         y_pos += 25
 
         # True wind direction (calculated from heading + TWA)
@@ -931,6 +938,11 @@ class ControlsHelpOverlay:
             ("BOAT PERFORMANCE", ""),
             ("  Shift+UP", "Target speed +5%"),
             ("  Shift+DOWN", "Target speed -5%"),
+            ("", ""),
+            ("WIND MODIFIERS", ""),
+            ("  Z / X keys", "Wind speed -/+ 5%"),
+            ("  Q / E keys", "Wind angle -/+ 2°"),
+            ("  Shift+W", "Reset wind modifiers"),
             ("", ""),
             ("VIEW", ""),
             ("  C key", "Center on boat"),
