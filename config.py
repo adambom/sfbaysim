@@ -287,6 +287,7 @@ COLLISION_CHECK_INTERVAL = 1.0  # Check every physics update (1 second)
 # ==================== Data Caching ====================
 CACHE_EXPIRY_DAYS = 7  # Delete cached files older than this
 MAX_CACHE_SIZE_GB = 5  # Maximum cache directory size
+OFFLINE_MODE = False  # Set True to disable network, use only cached data
 
 # ==================== Threading ====================
 BACKGROUND_THREAD_DAEMON = True  # Daemon threads exit when main exits

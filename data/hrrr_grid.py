@@ -18,8 +18,10 @@ from config import (
     CACHE_DIR,
     MS_TO_KNOTS,
     MAX_NOAA_RETRY_ATTEMPTS,
-    NOAA_RETRY_DELAY
+    NOAA_RETRY_DELAY,
+    OFFLINE_MODE
 )
+from data.cache_manager import get_cache_manager
 
 
 class HRRRGridData:
@@ -62,6 +64,9 @@ class HRRRGridData:
         Fast - only takes a few seconds to download and parse.
         Uses nearest neighbor on regular grid (no triangulation needed).
         """
+        # Get cache manager
+        cache_mgr = get_cache_manager()
+
         # Try multiple model runs (newest to oldest) until one works
         success = False
         cache_path = None
@@ -83,13 +88,27 @@ class HRRRGridData:
                 if forecast_hour < 0 or forecast_hour > 48:
                     continue
 
-                # Construct URL and cache path
-                url = self._construct_url(run_time, forecast_hour)
-                cache_path = self._get_cache_path(run_time, forecast_hour)
+                # Use cache manager to get cache path
+                cache_path = cache_mgr.get_cache_path('hrrr', run_time, forecast_hour)
 
-                # Download if not cached
-                if not os.path.exists(cache_path):
-                    self._download_file(url, cache_path)
+                # Check if cached
+                if cache_path.exists():
+                    print(f"Cache hit: HRRR {run_time.strftime('%Y%m%d %Hz')} f{forecast_hour:02d}")
+                    cache_mgr.update_access_time(cache_path.name)
+                    success = True
+                    print(f"✓ Using cached HRRR: {run_time.strftime('%Y%m%d %Hz')} f{forecast_hour:02d}")
+                    break
+
+                # In offline mode, skip network attempts
+                if OFFLINE_MODE:
+                    continue
+
+                # Download from network
+                url = self._construct_url(run_time, forecast_hour)
+                self._download_file(url, str(cache_path))
+
+                # Register with cache manager
+                cache_mgr.register_file('hrrr', run_time, forecast_hour, cache_path)
 
                 success = True
                 print(f"✓ Using HRRR run: {run_time.strftime('%Y%m%d %Hz')} f{forecast_hour:02d}")
@@ -100,7 +119,10 @@ class HRRRGridData:
                 continue
 
         if not success or cache_path is None:
-            raise Exception("Could not find any available HRRR data")
+            if OFFLINE_MODE:
+                raise Exception("No cached HRRR data available (offline mode)")
+            else:
+                raise Exception("Could not find any available HRRR data")
 
         try:
 
@@ -221,27 +243,6 @@ class HRRRGridData:
         )
 
         return url
-
-    def _get_cache_path(self, run_time, forecast_hour):
-        """
-        Get local cache path for HRRR file.
-
-        Args:
-            run_time: Model run datetime
-            forecast_hour: Forecast hour
-
-        Returns:
-            Local file path string
-        """
-        date_str = run_time.strftime('%Y%m%d')
-        cycle = run_time.hour
-
-        filename = f"hrrr_{date_str}_{cycle:02d}z_f{forecast_hour:02d}.grib2"
-
-        # Ensure cache directory exists
-        os.makedirs(CACHE_DIR, exist_ok=True)
-
-        return os.path.join(CACHE_DIR, filename)
 
     def _download_file(self, url, dest_path):
         """

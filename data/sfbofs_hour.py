@@ -15,8 +15,10 @@ from config import (
     SFBOFS_URL_TEMPLATE,
     SFBOFS_MODEL_CYCLES,
     MAX_NOAA_RETRY_ATTEMPTS,
-    NOAA_RETRY_DELAY
+    NOAA_RETRY_DELAY,
+    OFFLINE_MODE
 )
+from data.cache_manager import get_cache_manager
 
 
 class SFBOFSHourData:
@@ -49,12 +51,17 @@ class SFBOFSHourData:
 
     def fetch_and_build(self):
         """
-        Load NetCDF file via OpenDAP and build interpolators.
+        Load NetCDF file via OpenDAP (or from cache) and build interpolators.
         Takes 5-10 seconds due to triangulation (first time only).
         """
+        # Get cache manager
+        cache_mgr = get_cache_manager()
+
         # Try multiple model runs (newest to oldest) until one works
         success = False
         ds = None
+        used_cycle_time = None
+        used_forecast_hour = None
 
         # Try current and previous 2 days
         for days_back in range(3):
@@ -65,9 +72,9 @@ class SFBOFSHourData:
                 try:
                     cycle_time = test_time.replace(hour=cycle, minute=0, second=0, microsecond=0)
 
-                    # Skip if cycle_time is in the future
+                    # Skip if cycle_time is in the future (unless in offline mode)
                     now = datetime.now(timezone.utc).replace(tzinfo=None)
-                    if cycle_time > now:
+                    if cycle_time > now and not OFFLINE_MODE:
                         continue
 
                     # Calculate forecast hour for this cycle
@@ -75,6 +82,32 @@ class SFBOFSHourData:
 
                     # Skip if forecast hour is out of range
                     if forecast_hour < 0 or forecast_hour > 48:
+                        continue
+
+                    # Check cache first
+                    cache_path = cache_mgr.get_cache_path('sfbofs', cycle_time, forecast_hour)
+
+                    if cache_path.exists():
+                        # Load from cache
+                        print(f"Cache hit: SFBOFS {cycle_time.strftime('%Y%m%d %Hz')} f{forecast_hour:03d}")
+                        try:
+                            ds = xr.open_dataset(cache_path)
+                            cache_mgr.update_access_time(cache_path.name)
+                            success = True
+                            used_cycle_time = cycle_time
+                            used_forecast_hour = forecast_hour
+                            print(f"✓ Using cached SFBOFS: {cycle_time.strftime('%Y%m%d %Hz')} f{forecast_hour:03d}")
+                            break
+                        except Exception as e:
+                            print(f"  Cache file corrupt, will re-download: {e}")
+                            # Delete corrupt cache file
+                            try:
+                                cache_path.unlink()
+                            except OSError:
+                                pass
+
+                    # In offline mode, skip network attempts
+                    if OFFLINE_MODE:
                         continue
 
                     # Construct OpenDAP URL
@@ -86,7 +119,15 @@ class SFBOFSHourData:
                     for attempt in range(MAX_NOAA_RETRY_ATTEMPTS):
                         try:
                             ds = xr.open_dataset(url)
+
+                            # Save to cache
+                            print(f"  Caching to {cache_path.name}...")
+                            ds.to_netcdf(cache_path)
+                            cache_mgr.register_file('sfbofs', cycle_time, forecast_hour, cache_path)
+
                             success = True
+                            used_cycle_time = cycle_time
+                            used_forecast_hour = forecast_hour
                             print(f"✓ Using SFBOFS run: {cycle_time.strftime('%Y%m%d %Hz')} f{forecast_hour:03d}")
                             break
                         except FileNotFoundError as e:
@@ -121,7 +162,10 @@ class SFBOFSHourData:
                 break
 
         if not success or ds is None:
-            raise Exception("Could not find any available SFBOFS data")
+            if OFFLINE_MODE:
+                raise Exception("No cached SFBOFS data available (offline mode)")
+            else:
+                raise Exception("Could not find any available SFBOFS data")
 
         try:
 

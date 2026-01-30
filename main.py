@@ -22,8 +22,13 @@ from config import (
     SHOW_FPS,
     COLOR_WHITE,
     HISTORY_SNAPSHOT_INTERVAL,
-    MAX_HISTORY_SNAPSHOTS
+    MAX_HISTORY_SNAPSHOTS,
+    CACHE_EXPIRY_DAYS,
+    MAX_CACHE_SIZE_GB
 )
+
+# Import cache manager
+from data.cache_manager import get_cache_manager
 
 # Import core components
 from core.boat import Boat
@@ -49,6 +54,13 @@ def main():
     print("=" * 60)
     print("SF Bay Sailing Simulator")
     print("=" * 60)
+
+    # Initialize cache manager and enforce policies
+    print("\nInitializing cache...")
+    cache_mgr = get_cache_manager()
+    cache_mgr.enforce_expiry(CACHE_EXPIRY_DAYS)
+    cache_mgr.enforce_size_limit(MAX_CACHE_SIZE_GB)
+    cache_mgr.print_stats()
 
     # Initialize Pygame
     pygame.init()
