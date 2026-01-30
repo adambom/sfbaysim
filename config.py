@@ -193,7 +193,7 @@ MIN_WIND_SPEED_KTS = 1.0  # Don't render winds weaker than this
 # ==================== Ladder Rungs Settings ====================
 LADDER_RUNG_SPACING_M = 200           # Meters between rungs (~0.1nm)
 LADDER_RUNG_COUNT = 5                 # Dotted rungs on each side
-LADDER_RUNG_LENGTH_M = 2000           # Length of each rung in meters
+LADDER_RUNG_LENGTH_M = 10000          # Length of each rung in meters
 LADDER_RUNG_MIN_WIND_SPEED = 2.0      # Min wind to render (kts)
 LADDER_RUNG_COLOR = (255, 200, 100)   # Amber - good contrast
 LADDER_RUNG_SOLID_WIDTH = 2           # Pixel width for solid rung
@@ -203,11 +203,11 @@ LADDER_RUNG_GAP_LENGTH = 6            # Gap length in pixels
 
 # ==================== Breadcrumb Trail Settings ====================
 BREADCRUMB_INTERVAL = 5.0  # seconds between breadcrumb points
-MAX_BREADCRUMBS = 500  # Maximum trail length
+MAX_BREADCRUMBS = 2000  # Maximum trail length
 
 # ==================== History/Rewind Settings ====================
-HISTORY_SNAPSHOT_INTERVAL = 30  # Seconds between snapshots
-MAX_HISTORY_SNAPSHOTS = 360     # 3 hours of history (360 * 30s = 10800s)
+HISTORY_SNAPSHOT_INTERVAL = 60  # Seconds between snapshots
+MAX_HISTORY_SNAPSHOTS = 1440    # 12 hours of history (720 * 60s = 43200s)
 
 # ==================== UI Font Settings ====================
 FONT_TITLE_SIZE = 16
