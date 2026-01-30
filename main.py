@@ -287,6 +287,10 @@ def main():
         # Render shared waypoints (visible to all boats)
         map_view.render_waypoints(map_surface, controls.waypoints, boats, controls.show_mark_lines)
 
+        # Render landmarks if enabled
+        if controls.show_landmarks:
+            map_view.render_landmarks(map_surface, controls.landmarks, pygame.mouse.get_pos())
+
         # Determine display time (current sim time or preview time)
         if controls.forecast_preview_mode and controls.paused:
             display_time = sim_time + timedelta(minutes=controls.preview_time_offset_minutes)

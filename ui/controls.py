@@ -5,7 +5,7 @@ Processes keyboard and mouse input for simulator control.
 
 import pygame
 import math
-from config import SPEED_MULTIPLIERS, DEFAULT_SPEED_INDEX
+from config import SPEED_MULTIPLIERS, DEFAULT_SPEED_INDEX, LANDMARKS
 
 
 class ControlHandler:
@@ -40,6 +40,8 @@ class ControlHandler:
         self.show_mark_lines = False  # Dashed lines to target marks
         self.show_ladder_rungs = False  # Ladder rungs overlay
         self.show_laylines = False  # Laylines at marks
+        self.show_landmarks = True  # Landmark markers (visible by default)
+        self.landmarks = LANDMARKS  # Navigation points from config
 
         # Forecast preview mode (for looking ahead in time while paused)
         self.forecast_preview_mode = False
@@ -222,6 +224,11 @@ class ControlHandler:
                 self.show_laylines = not self.show_laylines
                 status = "ON" if self.show_laylines else "OFF"
                 print(f"Laylines {status}")
+
+            elif event.key == pygame.K_b:
+                self.show_landmarks = not self.show_landmarks
+                status = "ON" if self.show_landmarks else "OFF"
+                print(f"Landmarks {status}")
 
             # ===== WIND MODIFIERS =====
             elif event.key == pygame.K_z:

@@ -15,6 +15,8 @@ from config import (
     COLOR_WIND_LIGHT,
     COLOR_GREEN,
     COLOR_RED,
+    COLOR_LANDMARK,
+    LANDMARK_RADIUS,
     MAP_ZOOM_MIN,
     MAP_ZOOM_MAX,
     MAP_ZOOM_STEP,
@@ -581,6 +583,68 @@ class MapView:
             # Draw downwind laylines
             pygame.draw.line(surface, LAYLINE_STARBOARD_COLOR, mark_screen, dn_stbd_screen, LAYLINE_WIDTH)
             pygame.draw.line(surface, LAYLINE_PORT_COLOR, mark_screen, dn_port_screen, LAYLINE_WIDTH)
+
+    def render_landmarks(self, surface, landmarks, mouse_pos):
+        """
+        Render landmark markers with hover tooltips.
+
+        Args:
+            surface: Pygame surface to draw on
+            landmarks: List of landmark dicts with 'name', 'description', 'lat', 'lon'
+            mouse_pos: Current mouse position (x, y)
+        """
+        hover_threshold = 15  # Pixels - distance to trigger hover
+        hovered_landmark = None
+        hovered_screen_pos = None
+
+        for landmark in landmarks:
+            screen_x, screen_y = self.latlon_to_screen(landmark['lat'], landmark['lon'])
+
+            # Draw filled circle with white outline
+            pygame.draw.circle(surface, COLOR_LANDMARK, (int(screen_x), int(screen_y)), LANDMARK_RADIUS)
+            pygame.draw.circle(surface, COLOR_WHITE, (int(screen_x), int(screen_y)), LANDMARK_RADIUS, 1)
+
+            # Check if mouse is hovering over this landmark
+            if mouse_pos:
+                distance = math.sqrt((mouse_pos[0] - screen_x)**2 + (mouse_pos[1] - screen_y)**2)
+                if distance <= hover_threshold:
+                    hovered_landmark = landmark
+                    hovered_screen_pos = (screen_x, screen_y)
+
+        # Render tooltip for hovered landmark (after all circles so it's on top)
+        if hovered_landmark and hovered_screen_pos:
+            font = pygame.font.SysFont('monospace', 12, bold=True)
+            font_small = pygame.font.SysFont('monospace', 10)
+
+            # Tooltip text
+            name_text = font.render(hovered_landmark['name'], True, COLOR_WHITE)
+            coord_text = font_small.render(
+                f"{hovered_landmark['lat']:.4f}, {hovered_landmark['lon']:.4f}",
+                True, COLOR_LANDMARK
+            )
+
+            # Calculate tooltip dimensions
+            tooltip_width = max(name_text.get_width(), coord_text.get_width()) + 10
+            tooltip_height = name_text.get_height() + coord_text.get_height() + 8
+
+            # Position tooltip above and to the right of the landmark
+            tooltip_x = int(hovered_screen_pos[0]) + 15
+            tooltip_y = int(hovered_screen_pos[1]) - tooltip_height - 5
+
+            # Keep tooltip on screen
+            if tooltip_x + tooltip_width > surface.get_width():
+                tooltip_x = int(hovered_screen_pos[0]) - tooltip_width - 15
+            if tooltip_y < 0:
+                tooltip_y = int(hovered_screen_pos[1]) + 15
+
+            # Draw tooltip background
+            tooltip_rect = pygame.Rect(tooltip_x, tooltip_y, tooltip_width, tooltip_height)
+            pygame.draw.rect(surface, (20, 20, 20), tooltip_rect)
+            pygame.draw.rect(surface, COLOR_LANDMARK, tooltip_rect, 1)
+
+            # Draw tooltip text
+            surface.blit(name_text, (tooltip_x + 5, tooltip_y + 3))
+            surface.blit(coord_text, (tooltip_x + 5, tooltip_y + 3 + name_text.get_height()))
 
     def render_wind_indicator(self, surface, wind_direction):
         """

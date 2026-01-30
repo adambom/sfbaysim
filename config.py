@@ -215,6 +215,30 @@ LAYLINE_STARBOARD_COLOR = (0, 200, 0)     # Green
 LAYLINE_PORT_COLOR = (200, 0, 0)          # Red
 LAYLINE_WIDTH = 2                     # Pixel width
 
+# ==================== Landmark Settings ====================
+COLOR_LANDMARK = (128, 128, 128)      # Gray
+LANDMARK_RADIUS = 3                   # Pixels
+
+LANDMARKS = [
+    {'name': 'RYC-BK', 'description': 'Bob Klein', 'lat': 37.886400, 'lon': -122.402600},
+    {'name': 'YRA-16', 'description': 'Blackaller', 'lat': 37.810000, 'lon': -122.465000},
+    {'name': 'Southampton Shoal', 'description': 'Southampton Shoal', 'lat': 37.881924, 'lon': -122.400219},
+    {'name': 'YRA-Anita', 'description': 'Anita rock offset buoy', 'lat': 37.808333, 'lon': -122.453333},
+    {'name': 'Point Blunt', 'description': 'Point Blunt offset buoy', 'lat': 37.8505, 'lon': -122.4175},
+    {'name': 'Pier', 'description': 'Berkeley Marina channel light 2', 'lat': 37.8477, 'lon': -122.3606},
+    {'name': '2CR', 'description': "R '2CR' Fl R 4s Castro Rocks Lighted Buoy 2CR", 'lat': 37.931664, 'lon': -122.420890},
+    {'name': 'RHC#2', 'description': "R '2' Q R Richmond Harbor Channel Lighted Buoy 2", 'lat': 37.918193, 'lon': -122.417493},
+    {'name': 'RHC#3', 'description': "R '3' Q R Richmond Harbor Channel Lighted Buoy 3", 'lat': 37.91513811087828, 'lon': -122.40970591705349},
+    {'name': 'YBI CG #2', 'description': 'Regulated Area Buoy 2', 'lat': 37.8075, 'lon': -122.3597},
+    {'name': 'YBI CG #1', 'description': 'Regulated Area Buoy 1', 'lat': 37.81167420413766, 'lon': -122.35967150446378},
+    {'name': 'RYC Birdcage', 'description': 'End of jetty', 'lat': 37.903750616461366, 'lon': -122.39209756578727},
+    {'name': 'Pt. Stuart', 'description': 'Buoy marking point stuart', 'lat': 37.86101238531544, 'lon': -122.44786594591845},
+    {'name': 'Alcatraz', 'description': 'Alcatraz Lighted Bell Buoy, GR “AZ” FL(2+1) G 6s', 'lat':  37.8277, 'lon': -122.4282},
+    {'name': 'YRA-12', 'description': 'Little Harding', 'lat': 37.843825, 'lon': -122.453357},
+    {'name': 'YRA-17', 'description': 'Harding Rock', 'lat': 37.838239, 'lon': -122.445994},
+    {'name': 'YRA-18', 'description': 'Blossom Rock', 'lat': 37.818376, 'lon': -122.403448}
+]
+
 # ==================== Breadcrumb Trail Settings ====================
 BREADCRUMB_INTERVAL = 5.0  # seconds between breadcrumb points
 MAX_BREADCRUMBS = 2000  # Maximum trail length

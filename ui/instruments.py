@@ -991,6 +991,7 @@ class ControlsHelpOverlay:
             ("  K key", "Toggle mark lines"),
             ("  Y key", "Toggle ladder rungs"),
             ("  J key", "Toggle laylines"),
+            ("  B key", "Toggle landmarks"),
             ("  W key", "Toggle wind overlay"),
             ("  U key", "Toggle current overlay"),
             ("  H key", "Toggle this help"),
