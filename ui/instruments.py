@@ -356,6 +356,36 @@ class InstrumentPanel:
         surface.blit(value, (x + 100, y_pos))
         y_pos += 22
 
+        # Optimal TWA (only when beating or running)
+        abs_twa = abs(boat.twa)
+        if abs_twa <= 60:
+            # Upwind mode - show optimal beating angle
+            optimal_twa = boat.polar.get_optimal_upwind_angle(boat.tws)
+            label = self.font_label.render("Opt TWA:", True, COLOR_LABEL)
+            surface.blit(label, (x, y_pos))
+            value = self.font_value.render(f"{optimal_twa:.0f}°", True, COLOR_TEXT)
+            surface.blit(value, (x + 100, y_pos))
+            # Show delta from optimal
+            delta = abs_twa - optimal_twa
+            delta_color = COLOR_GREEN if abs(delta) < 5 else COLOR_LABEL
+            delta_text = self.font_small.render(f"({delta:+.0f}°)", True, delta_color)
+            surface.blit(delta_text, (x + 150, y_pos))
+            y_pos += 22
+        elif abs_twa >= 120:
+            # Downwind mode - show optimal running angle
+            optimal_twa = boat.polar.get_optimal_downwind_angle(boat.tws)
+            label = self.font_label.render("Opt TWA:", True, COLOR_LABEL)
+            surface.blit(label, (x, y_pos))
+            value = self.font_value.render(f"{optimal_twa:.0f}°", True, COLOR_TEXT)
+            surface.blit(value, (x + 100, y_pos))
+            # Show delta from optimal
+            delta = abs_twa - optimal_twa
+            delta_color = COLOR_GREEN if abs(delta) < 5 else COLOR_LABEL
+            delta_text = self.font_small.render(f"({delta:+.0f}°)", True, delta_color)
+            surface.blit(delta_text, (x + 150, y_pos))
+            y_pos += 22
+        # No display when reaching (60° < |TWA| < 120°)
+
         y_pos += 10
         return y_pos
 
