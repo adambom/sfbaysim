@@ -236,7 +236,12 @@ LANDMARKS = [
     {'name': 'Alcatraz', 'description': 'Alcatraz Lighted Bell Buoy, GR “AZ” FL(2+1) G 6s', 'lat':  37.8277, 'lon': -122.4282},
     {'name': 'YRA-12', 'description': 'Little Harding', 'lat': 37.843825, 'lon': -122.453357},
     {'name': 'YRA-17', 'description': 'Harding Rock', 'lat': 37.838239, 'lon': -122.445994},
-    {'name': 'YRA-18', 'description': 'Blossom Rock', 'lat': 37.818376, 'lon': -122.403448}
+    {'name': 'YRA-18', 'description': 'Blossom Rock', 'lat': 37.818376, 'lon': -122.403448},
+    {'name': 'YRA-19', 'description': "R '8' Fl R 2.5s San Francisco Bay North Channel Lighted Buoy 8", 'lat': 37.879698, 'lon': -122.414932},
+    {'name': 'YRA-28', 'description': "R '2' Fl R 2.5s Southampton Shoal Channel Lighted Buoy 2", 'lat': 37.890572, 'lon': -122.417659},
+    {'name': 'YRA-29', 'description': "R '4' Fl R 4s Southampton Shoal Channel Lighted Buoy 4", 'lat': 37.903908, 'lon': -122.420154},
+    {'name': 'YRA-NR6', 'description': "R '6' Fl R 2.5s Southampton Shoal Channel Lighted Buoy 6", 'lat': 37.916245, 'lon': -122.422347},
+    {'name': 'YRA-NR12', 'description': "R '12' Fl R 2.5s San Francisco Bay North Channel Lighted Buoy 12", 'lat': 37.913595, 'lon': -122.445155}
 ]
 
 # ==================== Breadcrumb Trail Settings ====================
